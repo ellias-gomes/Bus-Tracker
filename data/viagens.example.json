@@ -1,0 +1,20 @@
+[
+  {
+    "id": "viagem-01",
+    "nome": "Viagem programada com ida e volta",
+    "origem": "Rio de Janeiro, RJ",
+    "destino": "Caçapava, SP",
+    "hub_alternativo": "São José dos Campos, SP",
+    "data_ida": "2026-11-23",
+    "data_volta": "2026-11-24",
+    "inicio_partida_ida": "18:00",
+    "limite_partida_ida": "22:00",
+    "inicio_partida_volta": "20:00",
+    "limite_chegada_volta": "07:15"
+  },
+  {
+    "id": "compromisso-01",
+    "name": "Compromisso presencial (calcula ida D-1 e volta D0)",
+    "event_date": "2026-12-08"
+  }
+]

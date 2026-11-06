@@ -1,0 +1,29 @@
+# Python / Ambientes Virtuais
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Configurações e Segredos
+.env
+PLANEJAMENTO_PESSOAL.md
+DUVIDAS.md
+
+# Banco de dados e armazenamento local
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+data/*
+!data/viagens.example.json
+logs/
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo

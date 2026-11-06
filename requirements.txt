@@ -1,0 +1,5 @@
+# Dependências mínimas e 100% Python puro (compatíveis com Termux/ARM).
+httpx>=0.27,<1.0
+python-dotenv>=1.0
+icalendar>=5.0
+tzdata>=2024.1

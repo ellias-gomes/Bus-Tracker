@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Atalho rápido do BusTracker:
+#   ./bustracker          -> Abre o Menu Interativo no Terminal (TUI)
+#   ./bustracker gui      -> Abre o Ambiente Gráfico no Navegador (Web UI)
+#   ./bustracker daemon   -> Inicia o robô em segundo plano + Telegram Bot
+set -e
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$DIR/.venv/bin/python" ]; then
+  exec "$DIR/.venv/bin/python" "$DIR/main.py" "$@"
+else
+  exec python3 "$DIR/main.py" "$@"
+fi

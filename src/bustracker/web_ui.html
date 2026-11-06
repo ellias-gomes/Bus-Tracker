@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚌 BusTracker — Painel Inteligente de Passagens</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-hover: #273549;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-dark: #0284c7;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      background: #0b1120;
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .brand span.sub {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: var(--muted);
+    }
+    nav.tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .tab-btn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      padding: 0.5rem 0.9rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); background: var(--surface); }
+    .tab-btn.active {
+      color: #0b1120;
+      background: var(--primary);
+    }
+    main {
+      max-width: 1240px;
+      margin: 1.5rem auto;
+      padding: 0 1.25rem 3rem;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+    }
+    .kpi-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi-val { font-size: 1.35rem; font-weight: 700; margin-top: 0.25rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.55rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--surface-hover); }
+    .btn:disabled { opacity: 0.6; cursor: wait; }
+    .btn-primary { background: var(--primary); color: #0b1120; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); color: #fff; }
+    .btn-success { background: var(--green); color: #052e16; border-color: var(--green); }
+    .btn-danger { border-color: #7f1d1d; color: #fca5a5; }
+    .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.1rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.85rem;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .card.bought { opacity: 0.62; }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .level-comprar_agora, .level-bom { background: rgba(34,197,94,0.18); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
+    .level-aguardar { background: rgba(234,179,8,0.18); color: #fde047; border: 1px solid rgba(234,179,8,0.4); }
+    .level-normal { background: rgba(249,115,22,0.18); color: #fdba74; border: 1px solid rgba(249,115,22,0.4); }
+    .level-ultimas_vagas { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.45); }
+    .level-sem_dados { background: rgba(148,163,184,0.15); color: var(--muted); border: 1px solid var(--border); }
+    .price-big { font-size: 1.65rem; font-weight: 800; color: #38bdf8; }
+    .bus-box {
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      padding: 0.85rem;
+      font-size: 0.88rem;
+    }
+    .reasons { font-size: 0.85rem; color: #cbd5e1; list-style: none; }
+    .reasons li { margin-bottom: 0.25rem; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.85rem;
+      padding: 1.35rem;
+      margin-bottom: 1.5rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 0.9rem;
+      margin-top: 0.85rem;
+    }
+    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 0.3rem; font-weight: 600; }
+    input, select {
+      width: 100%;
+      background: #0b1120;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 0.45rem;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.92rem;
+    }
+    input:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+    /* Autocomplete de Cidades */
+    .ac-wrap { position: relative; }
+    .ac-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #0b1120;
+      border: 1px solid var(--primary);
+      border-radius: 0.5rem;
+      max-height: 230px;
+      overflow-y: auto;
+      z-index: 90;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.55);
+      display: none;
+    }
+    .ac-item {
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+      border-bottom: 1px solid rgba(51,65,85,0.4);
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.active {
+      background: var(--surface-hover);
+      color: var(--primary);
+    }
+    .ac-slug { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
+
+    /* Calendário Visual */
+    .cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.45rem;
+    }
+    .cal-dow {
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 0.4rem 0;
+    }
+    .cal-day {
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      min-height: 88px;
+      padding: 0.45rem;
+      cursor: pointer;
+      transition: all 0.12s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .cal-day:hover { border-color: var(--primary); background: var(--surface-hover); }
+    .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+    .cal-day.today { border-color: var(--primary); }
+    .cal-day.selected {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.45);
+      background: rgba(34,197,94,0.08);
+    }
+    .cal-num { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+    .cal-chip {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.35rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chip-ida { background: rgba(56,189,248,0.22); color: #7dd3fc; border-left: 3px solid var(--primary); }
+    .chip-volta { background: rgba(34,197,94,0.22); color: #86efac; border-left: 3px solid var(--green); }
+    #toast {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      background: #0284c7;
+      color: #fff;
+      padding: 0.8rem 1.25rem;
+      border-radius: 0.6rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.45);
+      display: none;
+      z-index: 200;
+      max-width: 420px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>🚌 BusTracker</span>
+      <span class="sub" id="headerRoute">Carregando...</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Painel & Alertas</button>
+      <button class="tab-btn" onclick="switchTab('calendar')">📅 Calendário Visual</button>
+      <button class="tab-btn" onclick="switchTab('search')">🔎 Buscar Passagens</button>
+      <button class="tab-btn" onclick="switchTab('history')">📈 Histórico & Gráfico</button>
+      <button class="tab-btn" onclick="switchTab('settings')">⚙️ Configurações (.env / iCal)</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ABA 1: DASHBOARD -->
+    <section id="tab-dashboard" class="panel active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Trechos Monitorados</div>
+          <div class="kpi-val" id="kpiLegs">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Menor Preço Unitário</div>
+          <div class="kpi-val" id="kpiBestPrice">-</div>
+        </div>
+        <div class="kpi-card" style="border-left: 3px solid #38bdf8;">
+          <div class="kpi-label">Total Geral Estimado</div>
+          <div class="kpi-val" id="kpiTotalGeral" style="color:#38bdf8;">-</div>
+          <div style="font-size:0.75rem; color:var(--muted); margin-top:3px;" id="kpiTotalRestante">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Metas (Bom / Excelente)</div>
+          <div class="kpi-val" id="kpiTargets">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Bot Telegram</div>
+          <div class="kpi-val" id="kpiTelegram">-</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <h2>Recomendações por Trecho</h2>
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+          <a class="btn" href="/api/export/csv" download="relatorio_bustracker.csv" title="Exportar planilha completa de preços e viagens">📥 Exportar CSV</a>
+          <button class="btn btn-primary" id="btnCheckNow" onclick="runCheckNow()">🔄 Atualizar Preços Agora</button>
+          <button class="btn" onclick="switchTab('calendar')">📅 + Agendar no Calendário</button>
+          <button class="btn" onclick="switchTab('search')">🔎 Busca Avulsa</button>
+        </div>
+      </div>
+
+      <div id="recCards" class="cards-grid"></div>
+    </section>
+
+    <!-- ABA 2: CALENDÁRIO VISUAL & AGENDAMENTO -->
+    <section id="tab-calendar" class="panel">
+      <div class="cards-grid" style="grid-template-columns: 1.45fr 1fr; align-items: start;">
+        <div>
+          <div class="form-card">
+            <div class="cal-header">
+              <button class="btn btn-sm" onclick="changeMonth(-1)">◀ Mês Anterior</button>
+              <h3 id="calMonthTitle">Mês</h3>
+              <button class="btn btn-sm" onclick="changeMonth(1)">Próximo Mês ▶</button>
+            </div>
+            <p style="font-size:0.84rem; color:var(--muted); margin-bottom:0.75rem;">
+              💡 <b>Clique em qualquer dia do calendário abaixo</b> para preencher a data nos formulários ao lado!
+            </p>
+            <div class="cal-grid" id="calGrid"></div>
+          </div>
+
+          <div class="form-card">
+            <div class="toolbar" style="margin-bottom:0.6rem;">
+              <h3>🗂️ Viagens Agendadas</h3>
+              <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <label class="btn btn-sm" style="cursor:pointer;" title="Importar arquivo .ics ou .json">
+                  📁 Importar Calendário (.ics / .json)
+                  <input type="file" id="calFileInput" accept=".ics,.json" style="display:none;" onchange="handleCalendarFileUpload(event)" />
+                </label>
+                <button class="btn btn-sm btn-primary" onclick="runCheckNow()">🔄 Buscar Preços das Viagens</button>
+              </div>
+            </div>
+            <div id="calendarTripsList" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="form-card">
+            <h3>🎓 Agendar Compromisso / Prova</h3>
+            <p style="font-size:0.82rem; color:var(--muted); margin-top:0.2rem;">
+              Calcula automaticamente a <b>IDA no dia anterior (D-1)</b> e a <b>VOLTA na noite do compromisso (D0)</b>.
+            </p>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+              <div style="grid-column: span 2;">
+                <label>Data do Compromisso / Prova</label>
+                <input type="date" id="evDate" />
+              </div>
+              <div style="grid-column: span 2;">
+                <label>Nome / Descrição</label>
+                <input type="text" id="evName" placeholder="Ex.: Prova Presencial UNIVESP" />
+              </div>
+              <div class="ac-wrap">
+                <label>Origem (ex.: rio de janeiro)</label>
+                <input type="text" id="evOrigin" class="city-input" autocomplete="off" placeholder="Rio de Janeiro - RJ" />
+              </div>
+              <div class="ac-wrap">
+                <label>Destino (ex.: cacapava)</label>
+                <input type="text" id="evDest" class="city-input" autocomplete="off" placeholder="Caçapava - SP" />
+              </div>
+              <div style="grid-column: span 2;">
+                <button class="btn btn-primary" style="width:100%; justify-content:center;" id="btnAddEvent" onclick="addEventTrip()">
+                  📅 Cadastrar Compromisso no Calendário
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <h3>➕ Agendar Viagem Personalizada</h3>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+              <div style="grid-column: span 2;">
+                <label>Descrição da Viagem</label>
+                <input type="text" id="trName" placeholder="Ex.: Visita Família / Trabalho" />
+              </div>
+              <div class="ac-wrap">
+                <label>Origem (digite o nome da cidade)</label>
+                <input type="text" id="trOrigin" class="city-input" autocomplete="off" placeholder="Ex.: rio de janeiro" />
+              </div>
+              <div class="ac-wrap">
+                <label>Destino (digite o nome da cidade)</label>
+                <input type="text" id="trDest" class="city-input" autocomplete="off" placeholder="Ex.: sao jose dos campos" />
+              </div>
+              <div>
+                <label>Data de IDA</label>
+                <input type="date" id="trOutDate" />
+              </div>
+              <div>
+                <label>Data de VOLTA (opcional)</label>
+                <input type="date" id="trRetDate" />
+              </div>
+              <div>
+                <label>Ida - Sair até (ex.: 22, 22h, 22:00)</label>
+                <input type="text" id="trOutBefore" placeholder="Ex.: 22h" />
+              </div>
+              <div>
+                <label>Volta - Chegar até (ex.: 7h15, 07:15)</label>
+                <input type="text" id="trRetArrive" placeholder="Ex.: 07:15" />
+              </div>
+              <div style="grid-column: span 2;">
+                <button class="btn btn-success" style="width:100%; justify-content:center;" id="btnAddTrip" onclick="addCustomTrip()">
+                  ➕ Salvar Viagem Monitorada
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: BUSCA DE PASSAGENS EM TEMPO REAL -->
+    <section id="tab-search" class="panel">
+      <div class="form-card">
+        <h3>🔎 Pesquisa Avulsa de Passagens em Tempo Real</h3>
+        <p style="font-size:0.84rem; color:var(--muted); margin-top:0.2rem;">
+          Digite o nome da cidade normalmente (ex.: <code>sao jose dos campos</code>, <code>cacapava</code>, <code>rio de janeiro</code>) — sugestões aparecerão automaticamente!
+        </p>
+        <div class="form-grid">
+          <div class="ac-wrap">
+            <label>Cidade de Origem</label>
+            <input type="text" id="sOrigin" class="city-input" autocomplete="off" placeholder="Ex.: rio de janeiro" />
+          </div>
+          <div class="ac-wrap">
+            <label>Cidade de Destino</label>
+            <input type="text" id="sDest" class="city-input" autocomplete="off" placeholder="Ex.: cacapava" />
+          </div>
+          <div>
+            <label>Data de Partida</label>
+            <input type="date" id="sDate" />
+          </div>
+          <div class="ac-wrap">
+            <label>Hubs Alternativos (separados por vírgula)</label>
+            <input type="text" id="sHubs" class="city-input" data-multi="1" autocomplete="off" placeholder="Ex.: sao jose dos campos, taubate" />
+          </div>
+          <div>
+            <label>Sair a partir de (ex.: 18, 18h, 18:30)</label>
+            <input type="text" id="sAfter" placeholder="Livre" />
+          </div>
+          <div>
+            <label>Sair até (ex.: 22, 22h, 22h30)</label>
+            <input type="text" id="sBefore" placeholder="Ex.: 22h" />
+          </div>
+        </div>
+        <div style="margin-top:1rem; display:flex; align-items:center; gap:1rem;">
+          <button class="btn btn-primary" id="btnSearch" onclick="runLiveSearch()">🔎 Buscar Passagens Agora</button>
+          <span id="searchSummaryText" style="font-size:0.88rem; color:var(--muted);"></span>
+        </div>
+      </div>
+      <div id="searchResults" class="cards-grid"></div>
+    </section>
+
+    <!-- ABA 4: HISTÓRICO & GRÁFICO -->
+    <section id="tab-history" class="panel">
+      <div class="form-card">
+        <div class="toolbar" style="margin-bottom:0.5rem;">
+          <h3>📈 Evolução Histórica de Preços</h3>
+          <div style="display:flex; gap:0.6rem;">
+            <select id="histTripSelect" onchange="loadHistoryChart()" style="min-width:240px;"></select>
+            <select id="histLegSelect" onchange="loadHistoryChart()" style="width:120px;">
+              <option value="ida">IDA</option>
+              <option value="volta">VOLTA</option>
+            </select>
+          </div>
+        </div>
+        <div id="histStats" style="font-size:0.9rem; color:var(--muted); margin-bottom:1rem;"></div>
+        <div id="histChartBox" style="background:#0b1120; border:1px solid var(--border); border-radius:0.65rem; padding:1rem; min-height:260px;"></div>
+      </div>
+    </section>
+
+    <!-- ABA 5: CONFIGURAÇÕES & CALENDÁRIOS -->
+    <section id="tab-settings" class="panel">
+      <div class="form-card">
+        <div class="toolbar">
+          <h3>⚙️ Configurações Gerais, Calendário iCal (.ics) e Telegram</h3>
+          <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+            <label class="btn btn-sm" style="cursor:pointer;" title="Importar arquivo .ics ou .json">
+              📁 Importar Arquivo (.ics / .json)
+              <input type="file" id="cfgCalFileInput" accept=".ics,.json" style="display:none;" onchange="handleCalendarFileUpload(event)" />
+            </label>
+            <button class="btn btn-sm" onclick="syncCalendarsNow()">🔄 Sincronizar Calendário (.ics / JSON)</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="ac-wrap">
+            <label>Origem Padrão (DEFAULT_ORIGIN)</label>
+            <input type="text" id="cfg_DEFAULT_ORIGIN" class="city-input" autocomplete="off" />
+          </div>
+          <div class="ac-wrap">
+            <label>Destino Padrão (DEFAULT_DESTINATION)</label>
+            <input type="text" id="cfg_DEFAULT_DESTINATION" class="city-input" autocomplete="off" />
+          </div>
+          <div class="ac-wrap">
+            <label>Hubs Alternativos (DEFAULT_HUBS)</label>
+            <input type="text" id="cfg_DEFAULT_HUBS" class="city-input" data-multi="1" autocomplete="off" />
+          </div>
+          <div>
+            <label>Preço Alvo BOM R$ (TARGET_PRICE_GOOD)</label>
+            <input type="number" step="0.5" id="cfg_TARGET_PRICE_GOOD" />
+          </div>
+          <div>
+            <label>Preço EXCELENTE R$ (TARGET_PRICE_EXCELLENT)</label>
+            <input type="number" step="0.5" id="cfg_TARGET_PRICE_EXCELLENT" />
+          </div>
+          <div>
+            <label>Limite Crítico de Vagas (MIN_SEATS_CRITICAL)</label>
+            <input type="number" id="cfg_MIN_SEATS_CRITICAL" />
+          </div>
+          <div>
+            <label>Ida - Sair após (ex.: 18h, 18:00)</label>
+            <input type="text" id="cfg_DEFAULT_OUTBOUND_DEPART_AFTER" placeholder="Ex.: 18:00" />
+          </div>
+          <div>
+            <label>Ida - Sair até (ex.: 22, 22h, 22:00)</label>
+            <input type="text" id="cfg_DEFAULT_OUTBOUND_DEPART_BEFORE" placeholder="Ex.: 22:00" />
+          </div>
+          <div>
+            <label>Volta - Sair após (ex.: 20h, 20:00)</label>
+            <input type="text" id="cfg_DEFAULT_RETURN_DEPART_AFTER" placeholder="Ex.: 20:00" />
+          </div>
+          <div>
+            <label>Volta - Chegar até (ex.: 7h15, 07:15)</label>
+            <input type="text" id="cfg_DEFAULT_RETURN_ARRIVE_BEFORE" placeholder="Ex.: 07:15" />
+          </div>
+          <div style="grid-column: span 2;">
+            <label>URL ou Caminho do Calendário Google / iCal (.ics)</label>
+            <input type="text" id="cfg_CALENDAR_ICS_URL" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" />
+          </div>
+          <div>
+            <label>Palavras-chave do Calendário (CALENDAR_KEYWORDS)</label>
+            <input type="text" id="cfg_CALENDAR_KEYWORDS" placeholder="prova,exame,presencial,#viagem" />
+          </div>
+          <div>
+            <label>Horários de Coleta Diária (DAILY_RUN_TIMES)</label>
+            <input type="text" id="cfg_DAILY_RUN_TIMES" placeholder="07:30,19:30" />
+          </div>
+          <div>
+            <label>Telegram Bot Token (deixe vazio para usar apenas local)</label>
+            <input type="password" id="cfg_TELEGRAM_BOT_TOKEN" placeholder="Ex.: 123456789:ABCdef..." />
+          </div>
+          <div>
+            <label>Telegram Chat ID</label>
+            <input type="text" id="cfg_TELEGRAM_CHAT_ID" placeholder="Ex.: 123456789" />
+          </div>
+        </div>
+        <div style="margin-top:1.25rem; display:flex; gap:0.65rem; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Salvar Configurações no .env</button>
+          <button class="btn" id="btnTestTg" onclick="testTelegramNow()">🤖 Testar Conexão Telegram</button>
+          <button class="btn btn-sm" onclick="clearTelegramFields()">🧹 Limpar Token (Modo Local)</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    let APP_STATE = null;
+    let CITIES = [];
+    let CAL_YEAR = new Date().getFullYear();
+    let CAL_MONTH = new Date().getMonth();
+    let SELECTED_CAL_ISO = '';
+    const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+    function normStr(s) {
+      return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
+    function toast(msg, isError=false) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.background = isError ? '#dc2626' : '#0284c7';
+      el.style.display = 'block';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.display = 'none'; }, 4200);
+    }
+
+    function fmtMoney(val) {
+      if (val === null || val === undefined) return '-';
+      return 'R$ ' + Number(val).toFixed(2).replace('.', ',');
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      const idx = {dashboard:0, calendar:1, search:2, history:3, settings:4}[name];
+      document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+      if (name === 'history') loadHistoryChart();
+      if (name === 'calendar') renderCalendar();
+    }
+
+    async function api(path, method='GET', body=null) {
+      const opts = { method, headers: {'Content-Type': 'application/json'} };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(path, opts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro na requisição');
+      return data;
+    }
+
+    // Sistema de Autocompletar de Cidades
+    function initCityAutocompletes() {
+      document.querySelectorAll('.city-input').forEach(input => {
+        if (input._acBound) return;
+        input._acBound = true;
+        const wrap = input.parentElement;
+        const menu = document.createElement('div');
+        menu.className = 'ac-menu';
+        wrap.appendChild(menu);
+
+        function renderSuggestions() {
+          const isMulti = input.dataset.multi === '1';
+          const rawVal = input.value;
+          const parts = isMulti ? rawVal.split(',') : [rawVal];
+          const currentQuery = normStr(parts[parts.length - 1]);
+
+          let matches = CITIES;
+          if (currentQuery) {
+            const starts = [];
+            const contains = [];
+            CITIES.forEach(c => {
+              const nName = normStr(c.name);
+              const nSlug = normStr(c.slug);
+              if (nName.startsWith(currentQuery) || nSlug.startsWith(currentQuery)) starts.push(c);
+              else if (nName.includes(currentQuery) || nSlug.includes(currentQuery)) contains.push(c);
+            });
+            matches = starts.concat(contains);
+          }
+          matches = matches.slice(0, 10);
+          if (!matches.length) {
+            menu.style.display = 'none';
+            return;
+          }
+          menu.innerHTML = matches.map(c => `
+            <div class="ac-item" data-slug="${c.slug}" data-name="${c.name}">
+              <span>📍 <b>${c.name}</b></span>
+              <span class="ac-slug">${c.slug}</span>
+            </div>
+          `).join('');
+          menu.style.display = 'block';
+
+          menu.querySelectorAll('.ac-item').forEach(item => {
+            item.addEventListener('mousedown', (ev) => {
+              ev.preventDefault();
+              const chosen = item.dataset.slug;
+              if (isMulti && parts.length > 1) {
+                parts[parts.length - 1] = ' ' + chosen;
+                input.value = parts.join(',').replace(/^,\s*/, '');
+              } else {
+                input.value = chosen;
+              }
+              menu.style.display = 'none';
+            });
+          });
+        }
+
+        input.addEventListener('input', renderSuggestions);
+        input.addEventListener('focus', renderSuggestions);
+        input.addEventListener('blur', () => setTimeout(() => { menu.style.display = 'none'; }, 160));
+      });
+    }
+
+    function applyState(state) {
+      APP_STATE = state;
+      CITIES = state.cities || [];
+      initCityAutocompletes();
+
+      const cfg = state.settings || {};
+      const defOrig = cfg.DEFAULT_ORIGIN || 'rio-de-janeiro-rj';
+      const defDest = cfg.DEFAULT_DESTINATION || 'cacapava-sp';
+      const defHubs = cfg.DEFAULT_HUBS || 'sao-jose-dos-campos-sp,taubate-sp';
+
+      document.getElementById('headerRoute').textContent = `${defOrig} ↔ ${defDest}`;
+
+      // KPIs
+      const recs = state.recommendations || [];
+      document.getElementById('kpiLegs').textContent = `${recs.length} trecho(s) (${(state.trips||[]).length} viagens)`;
+      const prices = recs.map(r => r.price).filter(p => p !== null && p !== undefined);
+      document.getElementById('kpiBestPrice').textContent = prices.length ? fmtMoney(Math.min(...prices)) : 'Aguardando coleta';
+
+      const tg = state.total_geral;
+      const tr = state.total_restante;
+      if (tg !== undefined && tg !== null && tg > 0) {
+        document.getElementById('kpiTotalGeral').textContent = fmtMoney(tg);
+        if (tr !== undefined && tr !== null && tr < tg) {
+          document.getElementById('kpiTotalRestante').innerHTML = `💳 A pagar: <b style="color:#4ade80;">${fmtMoney(tr)}</b>`;
+        } else {
+          document.getElementById('kpiTotalRestante').textContent = `Total a pagar: ${fmtMoney(tg)}`;
+        }
+      } else {
+        document.getElementById('kpiTotalGeral').textContent = 'R$ 0,00';
+        document.getElementById('kpiTotalRestante').textContent = 'Nenhuma passagem cotada';
+      }
+
+      document.getElementById('kpiTargets').textContent =
+        `${fmtMoney(state.target_price_good)} / ${fmtMoney(state.target_price_excellent)}`;
+      document.getElementById('kpiTelegram').textContent = state.telegram_enabled ? '🟢 Conectado' : '🟡 Local';
+
+      // Preenche defaults nos formulários
+      if (!document.getElementById('evOrigin').value) document.getElementById('evOrigin').value = defOrig;
+      if (!document.getElementById('evDest').value) document.getElementById('evDest').value = defDest;
+      if (!document.getElementById('trOrigin').value) document.getElementById('trOrigin').value = defOrig;
+      if (!document.getElementById('trDest').value) document.getElementById('trDest').value = defDest;
+      if (!document.getElementById('trOutBefore').value) document.getElementById('trOutBefore').value = cfg.DEFAULT_OUTBOUND_DEPART_BEFORE || '22:00';
+      if (!document.getElementById('trRetArrive').value) document.getElementById('trRetArrive').value = cfg.DEFAULT_RETURN_ARRIVE_BEFORE || '07:15';
+      if (!document.getElementById('sOrigin').value) document.getElementById('sOrigin').value = defOrig;
+      if (!document.getElementById('sDest').value) document.getElementById('sDest').value = defDest;
+      if (!document.getElementById('sHubs').value) document.getElementById('sHubs').value = defHubs;
+      if (!document.getElementById('sBefore').value) document.getElementById('sBefore').value = cfg.DEFAULT_OUTBOUND_DEPART_BEFORE || '22:00';
+
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 4);
+      const nextWeekIso = nextWeek.toISOString().slice(0, 10);
+      if (!document.getElementById('sDate').value) document.getElementById('sDate').value = nextWeekIso;
+      if (!document.getElementById('evDate').value) document.getElementById('evDate').value = nextWeekIso;
+      if (!document.getElementById('trOutDate').value) document.getElementById('trOutDate').value = nextWeekIso;
+
+      // Preenche aba Configurações
+      Object.keys(cfg).forEach(k => {
+        const el = document.getElementById('cfg_' + k);
+        if (el) el.value = cfg[k] || '';
+      });
+
+      // Select do Histórico
+      const sel = document.getElementById('histTripSelect');
+      sel.innerHTML = (state.trips || []).map(t => `<option value="${t.id}">${t.name} (${t.id})</option>`).join('');
+
+      renderRecCards();
+      renderCalendar();
+      renderCalendarTripsList();
+    }
+
+    function renderRecCards() {
+      const box = document.getElementById('recCards');
+      const recs = (APP_STATE && APP_STATE.recommendations) || [];
+      if (!recs.length) {
+        box.innerHTML = `<div class="card"><p style="color:var(--muted);">Nenhuma viagem ativa cadastrada. Clique na aba <b>📅 Calendário Visual</b> para agendar suas provas ou viagens, ou use <b>🔎 Buscar Passagens</b> para pesquisar agora!</p></div>`;
+        return;
+      }
+      box.innerHTML = recs.map(r => {
+        const best = r.best;
+        let busHtml = `<div class="bus-box" style="color:var(--muted);">Ainda sem coleta para este trecho. Clique no botão azul <b>🔄 Atualizar Preços Agora</b> acima!</div>`;
+        let buyButtonsHtml = '';
+        if (best) {
+          const segsHtml = best.segments.map(s => s.is_estimate
+            ? `<div style="color:#94a3b8; font-size:0.8rem; margin-top:0.35rem;">↳ ${s.origin_label} → ${s.dest_label}: conexão local estimada ~${fmtMoney(s.price)}</div>`
+            : `<div style="margin-bottom:0.3rem;">
+                 <div><b>🚌 ${s.depart_at} → ${s.arrive_at}</b> • <b>${fmtMoney(s.price)}</b> • ${s.company} (${s.seat_type})</div>
+                 <div style="font-size:0.8rem; color:#7dd3fc;">🛣️ Trecho na viação: <b>${s.origin_label} → ${s.dest_label}</b></div>
+                 ${s.boarding_point ? `<div style="font-size:0.8rem; color:var(--muted);">📍 Embarque: ${s.boarding_point}</div>` : ''}
+                 ${s.alighting_point ? `<div style="font-size:0.8rem; color:var(--muted);">🏁 Desembarque: ${s.alighting_point}</div>` : ''}
+               </div>`
+          ).join('');
+          const altsHtml = (r.alternatives && r.alternatives.length)
+            ? `<div style="margin-top:0.55rem; padding-top:0.45rem; border-top:1px solid var(--border); font-size:0.79rem; color:var(--muted);">
+                 <div style="font-weight:700; margin-bottom:0.2rem;">Outras opções na janela:</div>
+                 ${r.alternatives.map(a => `
+                   <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; margin-top:0.18rem;">
+                     <span>• ${a.depart_time}→${a.arrive_time} <b>${fmtMoney(a.price)}</b> (${a.company}, ${a.seat_type})</span>
+                     ${a.url ? `<a href="${a.url}" target="_blank" rel="noopener" style="color:var(--primary); text-decoration:none; font-weight:600;">🔗 Abrir</a>` : ''}
+                   </div>
+                 `).join('')}
+               </div>`
+            : '';
+          busHtml = `<div class="bus-box">
+            ${segsHtml}
+            <div style="margin-top:0.35rem; font-size:0.82rem; color:#7dd3fc;">
+              💺 Vagas: <b>${best.seats_display}</b> ${best.transfers ? `• 🔁 ${best.transfers} conexão` : '• Direto'}
+            </div>
+            ${altsHtml}
+          </div>`;
+
+          const realSegs = best.segments.filter(s => !s.is_estimate && s.url);
+          buyButtonsHtml = realSegs.map(s => {
+            const routeShort = `${s.origin_short || s.origin_label} → ${s.dest_short || s.dest_label}`;
+            const timeShort = s.depart_time || (s.depart_at || '').split(' ')[1] || '';
+            return `<a class="btn btn-sm btn-primary" href="${s.url}" target="_blank" rel="noopener">🔗 Comprar na ${s.provider} (${routeShort} • ${timeShort})</a>`;
+          }).join('');
+        }
+        const reasonsHtml = (r.reasons || []).map(rs => `<li>💡 ${rs}</li>`).join('');
+
+        const tripObj = (APP_STATE && APP_STATE.trips || []).find(t => t.id === r.trip_id);
+        let comboHtml = '';
+        if (tripObj && tripObj.combo && tripObj.combo.has_combo && tripObj.combo.combo_price !== null) {
+          const cb = tripObj.combo;
+          let targetBadge = '';
+          if (cb.combo_price <= cb.target_excellent) {
+            targetBadge = `<span style="color:#4ade80; font-weight:700;">🔥 Excelente (≤ ${fmtMoney(cb.target_excellent)})</span>`;
+          } else if (cb.combo_price <= cb.target_good) {
+            targetBadge = `<span style="color:#86efac; font-weight:700;">✅ Bom (≤ ${fmtMoney(cb.target_good)})</span>`;
+          } else {
+            targetBadge = `<span style="color:#fdba74;">⏳ Acima da meta (${fmtMoney(cb.target_good)})</span>`;
+          }
+          const pendingStr = (cb.bought_count > 0 && !cb.is_fully_bought)
+            ? ` • <span style="color:#38bdf8;">Falta pagar: ${fmtMoney(cb.combo_remaining)}</span>`
+            : (cb.is_fully_bought ? ` • <span style="color:#4ade80;">Totalmente Comprada!</span>` : '');
+          comboHtml = `
+            <div style="background:rgba(56,189,248,0.08); border:1px dashed rgba(56,189,248,0.35); border-radius:0.5rem; padding:0.45rem 0.65rem; font-size:0.8rem; margin-top:0.4rem;">
+              💳 <b>Total da Viagem (Ida + Volta):</b> <b style="color:#38bdf8; font-size:0.95rem;">${fmtMoney(cb.combo_price)}</b> • ${targetBadge}${pendingStr}
+            </div>
+          `;
+        }
+
+        return `<div class="card ${r.bought ? 'bought' : ''}">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+            <span class="badge level-${r.level}">${r.level_label}</span>
+            <span style="font-size:0.78rem; color:var(--muted);">D-${r.days_left} • <code>${r.trip_id}</code></span>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <div>
+              <div style="font-weight:700; font-size:1.05rem;">${r.trip_name} — <span style="color:var(--primary);">${r.leg.toUpperCase()}</span></div>
+              <div style="font-size:0.85rem; color:var(--muted);">📍 ${r.origin_label} → ${r.dest_label}</div>
+              <div style="font-size:0.83rem; color:var(--muted);">📅 ${r.date_formatted} (${r.window_desc})</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="price-big">${r.price !== null ? fmtMoney(r.price) : '-'}</div>
+              ${best && best.transfers ? `<div style="font-size:0.75rem; color:var(--muted);">total c/ conexão</div>` : ''}
+            </div>
+          </div>
+          ${busHtml}
+          ${comboHtml}
+          <ul class="reasons">${reasonsHtml}</ul>
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-top:auto; padding-top:0.4rem;">
+            ${buyButtonsHtml}
+            <button class="btn btn-sm" onclick="openHistoryFor('${r.trip_id}', '${r.leg}')">📈 Gráfico</button>
+            <button class="btn btn-sm" onclick="toggleBought('${r.trip_id}', '${r.leg}', ${!r.bought})">
+              ${r.bought ? '🔔 Reativar Alertas' : '✅ Já Comprei'}
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="deleteTrip('${r.trip_id}')">🗑️ Remover</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderCalendar() {
+      document.getElementById('calMonthTitle').textContent = `${MONTHS_PT[CAL_MONTH]} ${CAL_YEAR}`;
+      const grid = document.getElementById('calGrid');
+      const dows = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+      let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+      const first = new Date(CAL_YEAR, CAL_MONTH, 1);
+      const startOffset = (first.getDay() + 6) % 7;
+      const daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+      const todayIso = new Date().toISOString().slice(0, 10);
+
+      const eventsByDate = {};
+      ((APP_STATE && APP_STATE.trips) || []).forEach(t => {
+        if (t.outbound && t.outbound.date) {
+          (eventsByDate[t.outbound.date] = eventsByDate[t.outbound.date] || []).push({type:'ida', name:t.name});
+        }
+        if (t.return && t.return.date) {
+          (eventsByDate[t.return.date] = eventsByDate[t.return.date] || []).push({type:'volta', name:t.name});
+        }
+      });
+
+      for (let i = 0; i < startOffset; i++) html += `<div class="cal-day empty"></div>`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = `${CAL_YEAR}-${String(CAL_MONTH+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const chips = (eventsByDate[iso] || []).map(ev =>
+          `<div class="cal-chip chip-${ev.type}">${ev.type === 'ida' ? '➡️ Ida' : '⬅️ Volta'}: ${ev.name}</div>`
+        ).join('');
+        const cls = [
+          'cal-day',
+          iso === todayIso ? 'today' : '',
+          iso === SELECTED_CAL_ISO ? 'selected' : ''
+        ].join(' ');
+        html += `<div class="${cls}" onclick="pickCalendarDate('${iso}')">
+          <div class="cal-num">${d}</div>
+          ${chips}
+        </div>`;
+      }
+      grid.innerHTML = html;
+    }
+
+    function renderCalendarTripsList() {
+      const box = document.getElementById('calendarTripsList');
+      const trips = (APP_STATE && APP_STATE.trips) || [];
+      if (!trips.length) {
+        box.innerHTML = `<p style="font-size:0.86rem; color:var(--muted);">Nenhuma viagem cadastrada ainda. Use os formulários ao lado para adicionar.</p>`;
+        return;
+      }
+      box.innerHTML = trips.map(t => {
+        let comboInfo = '';
+        if (t.combo && t.combo.has_combo && t.combo.combo_price !== null) {
+          const cb = t.combo;
+          const statusTxt = cb.is_fully_bought
+            ? '<span style="color:#4ade80; font-weight:700;">✅ Totalmente Comprada</span>'
+            : (cb.bought_count > 0 ? `<span style="color:#38bdf8;">💳 Restante a pagar: ${fmtMoney(cb.combo_remaining)}</span>` : '');
+          comboInfo = `<div style="font-size:0.8rem; color:#7dd3fc; margin-top:0.25rem;">
+            💵 <b>Total Estimado (Ida + Volta): ${fmtMoney(cb.combo_price)}</b> ${statusTxt ? '• ' + statusTxt : ''}
+          </div>`;
+        }
+        return `
+        <div class="bus-box" style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+          <div>
+            <div><b>${t.name}</b> <code style="color:var(--muted); font-size:0.78rem;">${t.id}</code></div>
+            <div style="font-size:0.82rem; color:var(--muted);">
+              📍 ${t.origin_label} ↔ ${t.destination_label}
+              ${t.outbound ? ` • ➡️ Ida: ${t.outbound.date.split('-').reverse().join('/')}` : ''}
+              ${t.return ? ` • ⬅️ Volta: ${t.return.date.split('-').reverse().join('/')}` : ''}
+            </div>
+            ${comboInfo}
+          </div>
+          <button class="btn btn-sm btn-danger" onclick="deleteTrip('${t.id}')">🗑️ Remover</button>
+        </div>`;
+      }).join('');
+    }
+
+    function changeMonth(delta) {
+      CAL_MONTH += delta;
+      if (CAL_MONTH < 0) { CAL_MONTH = 11; CAL_YEAR--; }
+      if (CAL_MONTH > 11) { CAL_MONTH = 0; CAL_YEAR++; }
+      renderCalendar();
+    }
+
+    function pickCalendarDate(iso) {
+      SELECTED_CAL_ISO = iso;
+      document.getElementById('evDate').value = iso;
+      document.getElementById('trOutDate').value = iso;
+      const next = new Date(iso + 'T12:00:00');
+      next.setDate(next.getDate() + 1);
+      document.getElementById('trRetDate').value = next.toISOString().slice(0, 10);
+      renderCalendar();
+      toast(`📅 Dia ${iso.split('-').reverse().join('/')} selecionado! Agora clique em "Cadastrar Compromisso" ou "Salvar Viagem" ao lado.`);
+    }
+
+    async function runCheckNow() {
+      const btn = document.getElementById('btnCheckNow');
+      btn.disabled = true;
+      btn.textContent = '⏳ Consultando viações...';
+      try {
+        const state = await api('/api/check', 'POST');
+        applyState(state);
+        switchTab('dashboard');
+        if (state.errors && state.errors.length) {
+          toast('⚠️ Preços atualizados, mas atenção: ' + state.errors[0], true);
+        } else if (state.alerts_sent > 0) {
+          toast('✅ Preços atualizados e enviados ao seu Telegram!');
+        } else {
+          toast('✅ Preços coletados e atualizados com sucesso!');
+        }
+      } catch (e) {
+        toast('⚠️ Erro: ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Atualizar Preços Agora';
+      }
+    }
+
+    async function addEventTrip() {
+      const btn = document.getElementById('btnAddEvent');
+      try {
+        const event_date = document.getElementById('evDate').value;
+        if (!event_date) { toast('⚠️ Selecione a data do compromisso!', true); return; }
+        btn.disabled = true;
+        const name = document.getElementById('evName').value;
+        const origin = document.getElementById('evOrigin').value;
+        const destination = document.getElementById('evDest').value;
+        const res = await api('/api/trips/event', 'POST', { event_date, name, origin, destination });
+        applyState(res.state);
+        const dtParts = event_date.split('-');
+        CAL_YEAR = Number(dtParts[0]);
+        CAL_MONTH = Number(dtParts[1]) - 1;
+        renderCalendar();
+        toast('✅ Compromisso agendado no calendário! Clique em "Buscar Preços das Viagens" para consultar.');
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function addCustomTrip() {
+      const btn = document.getElementById('btnAddTrip');
+      try {
+        const outbound_date = document.getElementById('trOutDate').value;
+        if (!outbound_date) { toast('⚠️ Informe a data de IDA!', true); return; }
+        btn.disabled = true;
+        const body = {
+          name: document.getElementById('trName').value,
+          origin: document.getElementById('trOrigin').value,
+          destination: document.getElementById('trDest').value,
+          outbound_date,
+          return_date: document.getElementById('trRetDate').value,
+          outbound_depart_before: document.getElementById('trOutBefore').value,
+          return_arrive_before: document.getElementById('trRetArrive').value,
+        };
+        const res = await api('/api/trips/add', 'POST', body);
+        applyState(res.state);
+        const dtParts = outbound_date.split('-');
+        CAL_YEAR = Number(dtParts[0]);
+        CAL_MONTH = Number(dtParts[1]) - 1;
+        renderCalendar();
+        toast('✅ Viagem cadastrada no calendário!');
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function deleteTrip(trip_id) {
+      try {
+        const res = await api('/api/trips/delete', 'POST', { trip_id });
+        applyState(res.state);
+        toast('🗑️ Viagem removida.');
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      }
+    }
+
+    async function toggleBought(trip_id, leg, bought) {
+      try {
+        const res = await api('/api/trips/bought', 'POST', { trip_id, leg, bought });
+        applyState(res.state);
+        toast(bought ? '✅ Alertas silenciados para este trecho.' : '🔔 Alertas reativados.');
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      }
+    }
+
+    async function runLiveSearch() {
+      const btn = document.getElementById('btnSearch');
+      const box = document.getElementById('searchResults');
+      const sumEl = document.getElementById('searchSummaryText');
+      btn.disabled = true;
+      btn.textContent = '⏳ Buscando nas viações...';
+      sumEl.textContent = 'Consultando rotas diretas e conexões via hubs...';
+      box.innerHTML = '';
+      try {
+        const res = await api('/api/search', 'POST', {
+          origin: document.getElementById('sOrigin').value,
+          destination: document.getElementById('sDest').value,
+          date: document.getElementById('sDate').value,
+          hubs: document.getElementById('sHubs').value,
+          depart_after: document.getElementById('sAfter').value,
+          depart_before: document.getElementById('sBefore').value,
+        });
+        sumEl.textContent = `${res.origin_label} → ${res.dest_label} em ${res.date_formatted}: ${res.count} opção(ões) encontrada(s)`;
+        if (!res.itineraries.length) {
+          box.innerHTML = `<div class="card"><p style="color:var(--muted);">Nenhuma opção encontrada dentro desse filtro de horário. Tente limpar o campo "Sair até" ou adicionar um Hub Alternativo (ex.: <code>sao jose dos campos</code>).</p></div>`;
+          return;
+        }
+        box.innerHTML = res.itineraries.map(it => {
+          const segs = it.segments.map(s => s.is_estimate
+            ? `<div style="font-size:0.8rem; color:#94a3b8; margin-top:0.35rem;">↳ ${s.origin_label} → ${s.dest_label}: conexão local estimada ~${fmtMoney(s.price)}</div>`
+            : `<div style="margin-bottom:0.3rem;">
+                 <div><b>🚌 ${s.depart_at} → ${s.arrive_at}</b> • <b>${fmtMoney(s.price)}</b> • ${s.company} (${s.seat_type})</div>
+                 <div style="font-size:0.8rem; color:#7dd3fc;">🛣️ Trecho na viação: <b>${s.origin_label} → ${s.dest_label}</b></div>
+                 ${s.boarding_point ? `<div style="font-size:0.8rem; color:var(--muted);">📍 Embarque: ${s.boarding_point}</div>` : ''}
+                 ${s.alighting_point ? `<div style="font-size:0.8rem; color:var(--muted);">🏁 Desembarque: ${s.alighting_point}</div>` : ''}
+               </div>`
+          ).join('');
+          const realSegs = it.segments.filter(s => !s.is_estimate && s.url);
+          const btns = realSegs.map(s => {
+            const routeShort = `${s.origin_short || s.origin_label} → ${s.dest_short || s.dest_label}`;
+            const timeShort = s.depart_time || (s.depart_at || '').split(' ')[1] || '';
+            return `<a class="btn btn-sm btn-primary" href="${s.url}" target="_blank" rel="noopener">🔗 Reservar na ${s.provider} (${routeShort} • ${timeShort})</a>`;
+          }).join('');
+          return `<div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="badge level-bom">${it.transfers ? `🔁 ${it.transfers} conexão (via Hub)` : 'Direto'} • 💺 ${it.seats_display} vagas</span>
+              <span class="price-big">${fmtMoney(it.price)}</span>
+            </div>
+            <div class="bus-box">${segs}</div>
+            <div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-top:auto;">
+              ${btns}
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        sumEl.textContent = '';
+        toast('⚠️ Erro na busca: ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔎 Buscar Passagens Agora';
+      }
+    }
+
+    function openHistoryFor(trip_id, leg) {
+      document.getElementById('histTripSelect').value = trip_id;
+      document.getElementById('histLegSelect').value = leg;
+      switchTab('history');
+    }
+
+    async function loadHistoryChart() {
+      const trip_id = document.getElementById('histTripSelect').value;
+      const leg = document.getElementById('histLegSelect').value;
+      const box = document.getElementById('histChartBox');
+      const statsEl = document.getElementById('histStats');
+      if (!trip_id) {
+        box.innerHTML = '<p style="color:var(--muted);">Nenhuma viagem selecionada.</p>';
+        return;
+      }
+      try {
+        const data = await api(`/api/history?trip_id=${encodeURIComponent(trip_id)}&leg=${encodeURIComponent(leg)}`);
+        const pts = data.points || [];
+        if (!pts.length) {
+          statsEl.textContent = 'Sem amostras coletadas para este trecho ainda.';
+          box.innerHTML = '<p style="color:var(--muted);">Clique em "Atualizar Preços Agora" no painel principal para registrar a primeira amostra.</p>';
+          return;
+        }
+        const st = data.stats || {};
+        statsEl.innerHTML = `Amostras: <b>${st.samples} dia(s)</b> • Mínimo: <b>${fmtMoney(st.minimum)}</b> • Média: <b>${fmtMoney(st.mean)}</b> • Máximo: <b>${fmtMoney(st.maximum)}</b>`;
+
+        const W = 820, H = 240, PAD = 42;
+        const values = pts.map(p => p.price).concat([data.target_good || 80]);
+        const minY = Math.max(0, Math.min(...values) - 10);
+        const maxY = Math.max(...values) + 10;
+        const scaleX = i => PAD + (pts.length === 1 ? (W - 2*PAD)/2 : i * ((W - 2*PAD) / (pts.length - 1)));
+        const scaleY = v => H - PAD - ((v - minY) / Math.max(maxY - minY, 1)) * (H - 2*PAD);
+
+        const poly = pts.map((p, i) => `${scaleX(i)},${scaleY(p.price)}`).join(' ');
+        const yGood = scaleY(data.target_good || 80);
+        const circles = pts.map((p, i) => `
+          <circle cx="${scaleX(i)}" cy="${scaleY(p.price)}" r="5" fill="#38bdf8" />
+          <text x="${scaleX(i)}" y="${scaleY(p.price) - 10}" fill="#f8fafc" font-size="11" text-anchor="middle">${fmtMoney(p.price)}</text>
+          <text x="${scaleX(i)}" y="${H - 14}" fill="#94a3b8" font-size="11" text-anchor="middle">${p.label}</text>
+        `).join('');
+
+        box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto;">
+          <line x1="${PAD}" y1="${yGood}" x2="${W-PAD}" y2="${yGood}" stroke="#22c55e" stroke-dasharray="5,5" stroke-width="1.5" />
+          <text x="${W-PAD}" y="${yGood - 6}" fill="#4ade80" font-size="11" text-anchor="end">Alvo Bom (${fmtMoney(data.target_good)})</text>
+          <polyline fill="none" stroke="#38bdf8" stroke-width="3" points="${poly}" />
+          ${circles}
+        </svg>`;
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        const keys = [
+          'DEFAULT_ORIGIN','DEFAULT_DESTINATION','DEFAULT_HUBS',
+          'TARGET_PRICE_GOOD','TARGET_PRICE_EXCELLENT','MIN_SEATS_CRITICAL',
+          'DEFAULT_OUTBOUND_DEPART_AFTER','DEFAULT_OUTBOUND_DEPART_BEFORE',
+          'DEFAULT_RETURN_DEPART_AFTER','DEFAULT_RETURN_ARRIVE_BEFORE',
+          'CALENDAR_ICS_URL','CALENDAR_KEYWORDS','DAILY_RUN_TIMES',
+          'TELEGRAM_BOT_TOKEN','TELEGRAM_CHAT_ID'
+        ];
+        const updates = {};
+        keys.forEach(k => {
+          const el = document.getElementById('cfg_' + k);
+          if (el) updates[k] = el.value.trim();
+        });
+        const res = await api('/api/settings', 'POST', { updates });
+        applyState(res.state);
+        toast('✅ Configurações salvas no .env!');
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      }
+    }
+
+    async function syncCalendarsNow() {
+      try {
+        const res = await api('/api/sync', 'POST');
+        applyState(res.state);
+        toast('✅ Calendários sincronizados com sucesso!');
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      }
+    }
+
+    async function testTelegramNow() {
+      const btn = document.getElementById('btnTestTg');
+      btn.disabled = true;
+      btn.textContent = '⏳ Testando...';
+      try {
+        const token = document.getElementById('cfg_TELEGRAM_BOT_TOKEN').value.trim();
+        const chat_id = document.getElementById('cfg_TELEGRAM_CHAT_ID').value.trim();
+        const res = await api('/api/telegram/test', 'POST', { token, chat_id });
+        toast(`✅ Bot @${res.bot_username} validado! ${res.sent ? 'Mensagem de teste enviada ao seu Telegram.' : ''}`);
+      } catch (e) {
+        toast('⚠️ ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🤖 Testar Conexão Telegram';
+      }
+    }
+
+    async function clearTelegramFields() {
+      document.getElementById('cfg_TELEGRAM_BOT_TOKEN').value = '';
+      document.getElementById('cfg_TELEGRAM_CHAT_ID').value = '';
+      await saveSettings();
+    }
+
+    async function handleCalendarFileUpload(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const content = reader.result;
+          const res = await api('/api/calendar/import', 'POST', {
+            filename: file.name,
+            content: content,
+          });
+          applyState(res.state);
+          toast(`✅ ${res.count} viagem(ns) importada(s) com sucesso de "${file.name}"!`);
+        } catch (e) {
+          toast('⚠️ Falha ao importar: ' + e.message, true);
+        } finally {
+          ev.target.value = '';
+        }
+      };
+      reader.onerror = () => {
+        toast('⚠️ Erro ao ler arquivo.', true);
+        ev.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    api('/api/state').then(applyState).catch(e => toast('⚠️ Erro ao carregar: ' + e.message, true));
+  </script>
+</body>
+</html>
