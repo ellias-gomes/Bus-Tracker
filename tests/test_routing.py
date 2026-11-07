@@ -50,7 +50,7 @@ def test_leg_spec_window_and_arrival_deadline():
 def test_build_itineraries_with_hub_and_local_connection():
     settings = Settings(
         max_transfers=1,
-        local_connections=[LocalConnection("sao-jose-dos-campos-sp", "cacapava-sp", 12.0, 35)],
+        local_connections=[LocalConnection("campinas-sp", "jundiai-sp", 12.0, 35)],
     )
     spec = LegSpec(
         date=date(2026, 11, 23),
@@ -59,9 +59,9 @@ def test_build_itineraries_with_hub_and_local_connection():
     )
 
     async def fake_fetch(origin: str, destination: str, travel_date: date) -> list[Offer]:
-        if origin == "rio-de-janeiro-rj" and destination == "cacapava-sp":
+        if origin == "rio-de-janeiro-rj" and destination == "jundiai-sp":
             return []  # Sem direto
-        if origin == "rio-de-janeiro-rj" and destination == "sao-jose-dos-campos-sp":
+        if origin == "rio-de-janeiro-rj" and destination == "campinas-sp":
             return [
                 Offer(
                     provider="buser",
@@ -73,7 +73,7 @@ def test_build_itineraries_with_hub_and_local_connection():
                     seats=8,
                     seat_type="semi leito",
                     company="Buser",
-                    alighting_point="Posto da Gruta (São José dos Campos)",
+                    alighting_point="Rodoviária de Campinas",
                 ),
                 # Fora da janela (22:45 > 22:00)
                 Offer(
@@ -91,9 +91,9 @@ def test_build_itineraries_with_hub_and_local_connection():
     its = asyncio.run(
         build_itineraries(
             "rio-de-janeiro-rj",
-            "cacapava-sp",
+            "jundiai-sp",
             spec,
-            ["sao-jose-dos-campos-sp"],
+            ["campinas-sp"],
             fake_fetch,
             settings,
         )
@@ -104,3 +104,50 @@ def test_build_itineraries_with_hub_and_local_connection():
     assert it.price == 71.90
     assert it.seats == 8
     assert it.segments[1].is_estimate
+
+
+def test_build_itineraries_early_morning_hub_departure():
+    # Trecho com conexão local inicial: Jundiaí -> Campinas + ônibus Campinas -> Rio às 00:20
+    # O deslocamento local calculado retroativamente começa às 23:15 da véspera (35m + 30m buffer).
+    # O itinerário DEVE ser aceito na busca da data do ônibus (00:00 - 03:00).
+    settings = Settings(
+        max_transfers=1,
+        local_connections=[LocalConnection("campinas-sp", "jundiai-sp", 12.0, 35)],
+    )
+    spec = LegSpec(
+        date=date(2026, 11, 11),
+        depart_after=None,
+        depart_before=time(3, 0),
+    )
+
+    async def fake_fetch(origin: str, destination: str, travel_date: date) -> list[Offer]:
+        if origin == "campinas-sp" and destination == "rio-de-janeiro-rj":
+            return [
+                Offer(
+                    provider="buser",
+                    origin=origin,
+                    destination=destination,
+                    depart_at=datetime(2026, 11, 11, 0, 20),
+                    arrive_at=datetime(2026, 11, 11, 6, 35),
+                    price=54.90,
+                    seats=5,
+                    company="Viação Exemplo",
+                    boarding_point="Rodoviária de Campinas",
+                )
+            ]
+        return []
+
+    its = asyncio.run(
+        build_itineraries(
+            "jundiai-sp",
+            "rio-de-janeiro-rj",
+            spec,
+            ["campinas-sp"],
+            fake_fetch,
+            settings,
+        )
+    )
+    assert len(its) == 1
+    assert its[0].main_segment.depart_at == datetime(2026, 11, 11, 0, 20)
+    assert its[0].price == 66.90  # 54.90 + 12.00
+

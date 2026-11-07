@@ -2,9 +2,9 @@
   {
     "id": "viagem-01",
     "nome": "Viagem programada com ida e volta",
-    "origem": "Rio de Janeiro, RJ",
-    "destino": "Caçapava, SP",
-    "hub_alternativo": "São José dos Campos, SP",
+    "origem": "São Paulo, SP",
+    "destino": "Rio de Janeiro, RJ",
+    "hub_alternativo": "",
     "data_ida": "2026-11-23",
     "data_volta": "2026-11-24",
     "inicio_partida_ida": "18:00",

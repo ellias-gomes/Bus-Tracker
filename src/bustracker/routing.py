@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Awaitable, Callable
 
 from .config import Settings
@@ -18,8 +19,12 @@ MAX_CONNECTION_WAIT = timedelta(hours=6)
 FetchFn = Callable[[str, str, date], Awaitable[list[Offer]]]
 
 
+def _to_naive(dt: datetime) -> datetime:
+    return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+
+
 class OfferSearch:
-    """Consulta todos os provedores habilitados, com cache por execução (rota+data)."""
+    """Consulta todos os provedores habilitados, com busca concorrente e cache por execução."""
 
     def __init__(self, providers: list[BaseProvider], on_offers: Callable[[date, list[Offer]], None] | None = None):
         self.providers = providers
@@ -31,16 +36,24 @@ class OfferSearch:
         key = (origin, destination, travel_date)
         if key in self._cache:
             return self._cache[key]
-        offers: list[Offer] = []
-        for provider in self.providers:
+
+        async def _query(p: BaseProvider) -> list[Offer]:
             try:
-                found = await provider.search(origin, destination, travel_date)
-                offers.extend(found)
+                return await p.search(origin, destination, travel_date)
             except ProviderError as exc:
-                msg = f"{provider.name}: {exc}"
+                msg = f"{p.name}: {exc}"
                 log.warning(msg)
                 if msg not in self.errors:
                     self.errors.append(msg)
+                return []
+            except Exception as exc:
+                log.warning("Erro no provedor %s: %s", p.name, exc)
+                return []
+
+        # Executa todos os provedores em paralelo para máxima velocidade
+        results = await asyncio.gather(*(_query(p) for p in self.providers))
+        offers: list[Offer] = [o for r in results for o in r]
+
         self._cache[key] = offers
         if self.on_offers and offers:
             self.on_offers(travel_date, offers)
@@ -59,6 +72,21 @@ def _local_segment(origin: str, destination: str, depart_at, minutes: int, cost:
         company="Transporte local",
         is_estimate=True,
     )
+
+
+def _itinerary_matches_spec(spec: LegSpec, it: Itinerary) -> bool:
+    """Verifica se o itinerário atende aos filtros de data/horário da especificação.
+
+    Para trechos que começam com conexão local estimada (ex.: Jundiaí -> Campinas),
+    o cálculo retroativo do deslocamento pode cair na noite do dia anterior
+    (ex.: ônibus às 00:20 com deslocamento local às 23:15 da véspera). Avaliar
+    o embarque no ônibus principal (main_segment) garante que viagens válidas
+    no dia pretendido não sejam incorretamente descartadas.
+    """
+    dep = it.main_segment.depart_at if it.segments[0].is_estimate else it.depart_at
+    if spec.accepts(dep, it.arrive_at):
+        return True
+    return spec.accepts(it.depart_at, it.arrive_at)
 
 
 async def build_itineraries(
@@ -110,7 +138,12 @@ async def build_itineraries(
                     itineraries.append(Itinerary([first, local]))
             elif conn_orig:
                 # Conexão local estimada até o hub + ônibus do hub até o destino.
-                for second in await fetch(hub, destination, d):
+                # Busca também no início do dia seguinte (d + 1), pois um ônibus saindo
+                # do hub na madrugada (ex.: 00h20) tem sua partida calculada na cidade de origem
+                # antes da meia-noite (ex.: 23h15 de d), pertencendo perfeitamente à janela de d!
+                hub_offers = list(await fetch(hub, destination, d))
+                hub_offers.extend(await fetch(hub, destination, d + timedelta(days=1)))
+                for second in hub_offers:
                     start = second.depart_at - min_conn - timedelta(minutes=conn_orig.minutes)
                     local = _local_segment(origin, hub, start, conn_orig.minutes, conn_orig.cost)
                     itineraries.append(Itinerary([local, second]))
@@ -127,7 +160,7 @@ async def build_itineraries(
                 paired = 0
                 for first in firsts:
                     for second in seconds:
-                        wait = second.depart_at - first.arrive_at
+                        wait = _to_naive(second.depart_at) - _to_naive(first.arrive_at)
                         if min_conn <= wait <= MAX_CONNECTION_WAIT:
                             itineraries.append(Itinerary([first, second]))
                             paired += 1
@@ -135,21 +168,21 @@ async def build_itineraries(
                 if paired == 0 and firsts:
                     for first in firsts:
                         local = _local_segment(
-                            hub, destination, first.arrive_at + timedelta(minutes=10), 30, 0.0
+                            hub, destination, _to_naive(first.arrive_at) + timedelta(minutes=10), 30, 0.0
                         )
                         itineraries.append(Itinerary([first, local]))
                 elif paired == 0 and not firsts:
                     for second in await fetch(hub, destination, d):
-                        start = second.depart_at - min_conn - timedelta(minutes=30)
+                        start = _to_naive(second.depart_at) - min_conn - timedelta(minutes=30)
                         local = _local_segment(origin, hub, start, 30, 0.0)
                         itineraries.append(Itinerary([local, second]))
 
-    valid = [it for it in itineraries if spec.accepts(it.depart_at, it.arrive_at)]
+    valid = [it for it in itineraries if _itinerary_matches_spec(spec, it)]
 
     unique: dict[str, Itinerary] = {}
     for it in valid:
         unique.setdefault(it.key(), it)
-    result = sorted(unique.values(), key=lambda it: (it.price, it.transfers, it.arrive_at))
+    result = sorted(unique.values(), key=lambda it: (it.price, it.transfers, _to_naive(it.arrive_at)))
     log.debug(
         "Trecho %s -> %s (%s): %d opções brutas, %d válidas",
         origin, destination, spec.date, len(itineraries), len(result),

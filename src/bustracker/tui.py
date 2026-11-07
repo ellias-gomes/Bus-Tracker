@@ -259,8 +259,8 @@ class InteractiveTUI:
 
     async def _action_quick_search(self) -> None:
         print(_box_title("🔎 Busca Rápida de Passagens"))
-        origin = _ask_city("Cidade de Origem", self.settings.default_origin or "rio-de-janeiro-rj", self.input_fn)
-        dest = _ask_city("Cidade de Destino", self.settings.default_destination or "cacapava-sp", self.input_fn)
+        origin = _ask_city("Cidade de Origem", self.settings.default_origin or "sao-paulo-sp", self.input_fn)
+        dest = _ask_city("Cidade de Destino", self.settings.default_destination or "rio-de-janeiro-rj", self.input_fn)
         dt_raw = _ask("Data da viagem (DD/MM ou DD/MM/AAAA)", "", self.input_fn)
         dt = parse_date(dt_raw)
         after = _ask("Sair a partir de qual horário? (ex.: 18, 18h, 18:30 ou vazio)", "", self.input_fn)
@@ -322,8 +322,8 @@ class InteractiveTUI:
 
     async def _action_add_trip(self) -> None:
         print(_box_title("➕ Agendar Viagem Personalizada"))
-        origin = _ask_city("Cidade de Origem", self.settings.default_origin or "rio-de-janeiro-rj", self.input_fn)
-        dest = _ask_city("Cidade de Destino", self.settings.default_destination or "cacapava-sp", self.input_fn)
+        origin = _ask_city("Cidade de Origem", self.settings.default_origin or "sao-paulo-sp", self.input_fn)
+        dest = _ask_city("Cidade de Destino", self.settings.default_destination or "rio-de-janeiro-rj", self.input_fn)
         dt_out = parse_date(_ask("Data de IDA (DD/MM ou DD/MM/AAAA)", "", self.input_fn))
         ret_raw = _ask("Data de VOLTA (DD/MM, DD/MM/AAAA ou vazio se somente ida)", "", self.input_fn)
         dt_ret = parse_date(ret_raw) if ret_raw else None

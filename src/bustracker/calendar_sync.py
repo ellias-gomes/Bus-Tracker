@@ -29,8 +29,14 @@ def trip_from_event(
     destination: str | None = None,
     hubs: list[str] | None = None,
     one_way: bool = False,
+    outbound_depart_after: str | None = None,
+    outbound_depart_before: str | None = None,
+    outbound_arrive_before: str | None = None,
+    return_depart_after: str | None = None,
+    return_depart_before: str | None = None,
+    return_arrive_before: str | None = None,
 ) -> Trip:
-    """Cria uma viagem a partir da data de um compromisso, usando os padrões do `.env`.
+    """Cria uma viagem a partir da data de um compromisso, usando os padrões do `.env` (ou overrides).
 
     Ida em `event_date + EVENT_OUTBOUND_DAY_OFFSET` e volta em `event_date + EVENT_RETURN_DAY_OFFSET`,
     com as janelas DEFAULT_OUTBOUND_* / DEFAULT_RETURN_*.
@@ -40,20 +46,28 @@ def trip_from_event(
     if not origin or not destination:
         raise ValueError("Defina DEFAULT_ORIGIN e DEFAULT_DESTINATION no .env ou informe origem/destino.")
 
+    out_dep_after = outbound_depart_after if outbound_depart_after is not None else settings.default_outbound_depart_after
+    out_dep_before = outbound_depart_before if outbound_depart_before is not None else settings.default_outbound_depart_before
+    out_arr_before = outbound_arrive_before if outbound_arrive_before is not None else settings.default_outbound_arrive_before
+
     outbound = LegSpec(
         date=event_date + timedelta(days=settings.event_outbound_day_offset),
-        depart_after=parse_hhmm(settings.default_outbound_depart_after),
-        depart_before=parse_hhmm(settings.default_outbound_depart_before),
-        arrive_before=parse_hhmm(settings.default_outbound_arrive_before),
-        arrive_day_offset=-settings.event_outbound_day_offset if settings.default_outbound_arrive_before else 0,
+        depart_after=parse_hhmm(out_dep_after),
+        depart_before=parse_hhmm(out_dep_before),
+        arrive_before=parse_hhmm(out_arr_before),
+        arrive_day_offset=-settings.event_outbound_day_offset if out_arr_before else 0,
     )
     return_leg = None
     if not one_way:
+        ret_dep_after = return_depart_after if return_depart_after is not None else settings.default_return_depart_after
+        ret_dep_before = return_depart_before if return_depart_before is not None else settings.default_return_depart_before
+        ret_arr_before = return_arrive_before if return_arrive_before is not None else settings.default_return_arrive_before
+
         return_leg = LegSpec(
             date=event_date + timedelta(days=settings.event_return_day_offset),
-            depart_after=parse_hhmm(settings.default_return_depart_after),
-            depart_before=parse_hhmm(settings.default_return_depart_before),
-            arrive_before=parse_hhmm(settings.default_return_arrive_before),
+            depart_after=parse_hhmm(ret_dep_after),
+            depart_before=parse_hhmm(ret_dep_before),
+            arrive_before=parse_hhmm(ret_arr_before),
             arrive_day_offset=settings.default_return_arrive_day_offset,
         )
     return Trip(

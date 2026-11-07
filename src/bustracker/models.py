@@ -60,12 +60,14 @@ class LegSpec:
         return datetime.combine(day, self.arrive_before, tzinfo)
 
     def accepts(self, depart_at: datetime, arrive_at: datetime) -> bool:
-        tzinfo = depart_at.tzinfo
-        start, end = self.window(tzinfo)
-        if not (start <= depart_at <= end):
+        # Garante comparação segura mesmo que um datetime seja offset-naive e outro offset-aware
+        dep = depart_at.replace(tzinfo=None) if depart_at.tzinfo is not None else depart_at
+        arr = arrive_at.replace(tzinfo=None) if arrive_at.tzinfo is not None else arrive_at
+        start, end = self.window(None)
+        if not (start <= dep <= end):
             return False
-        deadline = self.arrival_deadline(tzinfo)
-        if deadline and arrive_at > deadline:
+        deadline = self.arrival_deadline(None)
+        if deadline and arr > deadline:
             return False
         return True
 
@@ -187,6 +189,13 @@ class Offer:
     url: str = ""
     is_estimate: bool = False
 
+    def __post_init__(self) -> None:
+        # Padroniza horários como naive (horário local brasileiro) para evitar incompatibilidade entre provedores
+        if self.depart_at is not None and self.depart_at.tzinfo is not None:
+            self.depart_at = self.depart_at.replace(tzinfo=None)
+        if self.arrive_at is not None and self.arrive_at.tzinfo is not None:
+            self.arrive_at = self.arrive_at.replace(tzinfo=None)
+
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["depart_at"] = self.depart_at.isoformat()
@@ -210,6 +219,23 @@ class Itinerary:
     @property
     def price(self) -> float:
         return round(sum(s.price for s in self.segments), 2)
+
+    @property
+    def bus_price(self) -> float:
+        """Valor puro da passagem de ônibus (sem conexões locais estimadas)."""
+        reals = [s.price for s in self.segments if not s.is_estimate]
+        return round(sum(reals), 2) if reals else self.price
+
+    @property
+    def estimate_price(self) -> float:
+        """Custo de conexões locais estimadas."""
+        ests = [s.price for s in self.segments if s.is_estimate]
+        return round(sum(ests), 2)
+
+    @property
+    def total_price(self) -> float:
+        """Valor total incluindo passagens e conexões estimadas."""
+        return self.price
 
     @property
     def depart_at(self) -> datetime:
@@ -246,7 +272,9 @@ class Itinerary:
 
     @property
     def duration(self) -> timedelta:
-        return self.arrive_at - self.depart_at
+        arr = self.arrive_at.replace(tzinfo=None) if self.arrive_at.tzinfo is not None else self.arrive_at
+        dep = self.depart_at.replace(tzinfo=None) if self.depart_at.tzinfo is not None else self.depart_at
+        return arr - dep
 
     def key(self) -> str:
         return " + ".join(

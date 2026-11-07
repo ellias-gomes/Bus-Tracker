@@ -13,7 +13,7 @@ Sistema automatizado e multiplataforma para monitoramento diário, análise pred
     - Desvio padrão e média móvel dos últimos 14 a 30 dias.
     - Curva de urgência temporal (D-30, D-15, D-7, D-3) cruzada com a taxa de ocupação dos assentos.
 - **Roteamento Inteligente & Hubs Regionais:**
-  - Suporte a busca direta e rotas com até 1 conexão/hub próximo (ex: desembarque em São José dos Campos - Posto da Gruta/Rodoviária + custo estimado/baldeação para Caçapava).
+  - Suporte a busca direta e rotas com até 1 conexão/hub próximo (ex: desembarque em Campinas - Rodoviária + custo estimado/baldeação para Jundiaí).
   - Cálculo de custo-benefício (Custo Total vs. Tempo de Deslocamento).
 - **Gestão de Viagens Multi-Fonte:**
   - Sincronização via calendário remoto iCal / Google Calendar (.ics).
@@ -42,9 +42,11 @@ Sistema automatizado e multiplataforma para monitoramento diário, análise pred
 +-----------------------+              +--------------------+     +-------------------+
 | Provedor de Agendas   |              |  Mecanismo Scraper |     |  Telegram Bot     |
 | - Google Cal (iCal)   |              |  - Buser API       |     |  - Notificações   |
-| - viagens.json local  |              |  - ClickBus API    |     |  - Comandos       |
-| - Telegram input      |              |  - Pássaro Marron  |     |    interativos    |
-+-----------------------+              +--------------------+     +-------------------+
+| - viagens.json local  |              |  - Guanabara API   |     |  - Comandos       |
+| - Telegram input      |              |  - Cometa (JCA) API|     |    interativos    |
++-----------------------+              |  - Águia Branca API|     +-------------------+
+                                       |  - ClickBus / PM   |
+                                       +--------------------+
                                                  |
                                                  v
                                        +--------------------+
@@ -64,24 +66,26 @@ Sistema automatizado e multiplataforma para monitoramento diário, análise pred
 ## 4. Módulos do Sistema
 
 ### 4.1. Módulo de Coleta (Providers)
-- **Buser Provider:** Extração prioritária via endpoints públicos/APIs internas consumidas pelo web/app (foco em fretamento colaborativo e marketplace).
-- **ClickBus / Agregadores:** Consulta comparativa de linhas rodoviárias regulares.
-- **Pássaro Marron / Concessionárias:** Coleta de linhas regionais do Vale do Paraíba.
+- **Buser Provider:** Extração via endpoints públicos/APIs internas consumidas pelo web/app (fretamento colaborativo e marketplace).
+- **Guanabara Provider:** Coleta de linhas regulares da Viação Guanabara, Util, Sampaio e Real Expresso via REST API Next.js.
+- **Cometa Provider:** Coleta de linhas regulares do Grupo JCA (Viação Cometa, 1001, Catarinense) via REST API oficial JCA.
+- **Águia Branca Provider:** Coleta de passagens via API oficial SAP Commerce Cloud (Hybris).
+- **ClickBus / Pássaro Marron:** Conectores adicionais/experimentais preparados.
 - **Tratamento de Anti-Bloqueio & Leveza:**
   - Uso preferencial de requisições HTTP diretas (`httpx` / `requests`) com simulação de headers.
   - Fallback headless browser apenas quando estritamente necessário, otimizado para não sobrecarregar dispositivos Termux/ARM.
 
 ### 4.2. Módulo de Roteamento & Proximidade
-- Matriz de nós de transporte:
-  - Nó Origem: Rio de Janeiro (Novo Rio, Rodoviária ou pontos Buser).
-  - Nó Destino Principal: Caçapava (Rodoviária / Dutra).
-  - Nó Alternativo (Hub): São José dos Campos (Posto da Gruta, Rodoviária Nova/Velha).
-- Algoritmo de junção: Se não houver direto no horário desejado, calcula o trecho até SJC + estimação/conexão para Caçapava.
+- Matriz de nós de transporte configurável pelo usuário:
+  - Nó Origem: Cidade de partida (ex: São Paulo - Rodoviária Tietê / Barra Funda).
+  - Nó Destino Principal: Cidade de destino (ex: Rio de Janeiro - Novo Rio).
+  - Nó Alternativo (Hub): Cidades intermediárias ou polos regionais vizinhos (ex: Campinas, Volta Redonda).
+- Algoritmo de junção: Se não houver direto no horário desejado, calcula o trecho até o hub + baldeação ou conexão local estimada.
 
 ### 4.3. Motor Analítico de Compra
 - **Regra de Janela Crítica:**
-  - Janela de Ida: Segunda-feira com embarque até ~22h00 (por segurança pública).
-  - Janela de Volta: Terça-feira à noite com chegada ao Rio de Janeiro impreterivelmente antes das 07h00/07h30 de quarta-feira.
+  - Janela de Ida: Viagem com embarque restrito a horários convenientes/seguros (ex.: saída antes das 22h00).
+  - Janela de Volta: Viagem noturna com chegada no destino final antes do início do expediente de trabalho (ex.: até 07h15 da manhã).
 - **Classificação do Bilhete:**
   - 🟢 **COMPRA RECOMENDADA (Melhor Momento):** Preço ≤ R$ 80,00 e vagas em ritmo de ocupação normal ou acelerado.
   - 🟡 **AGUARDAR / MONITORAR:** Preço > R$ 80,00 com mais de 15 dias de antecedência e volume alto de assentos livres.

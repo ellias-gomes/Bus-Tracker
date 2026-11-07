@@ -7,18 +7,18 @@ import unicodedata
 
 # Cidades principais numeradas no menu rápido do terminal (1 a 12)
 QUICK_CITIES: list[tuple[str, str]] = [
-    ("rio-de-janeiro-rj", "Rio de Janeiro - RJ"),
-    ("cacapava-sp", "Caçapava - SP"),
-    ("sao-jose-dos-campos-sp", "São José dos Campos - SP"),
     ("sao-paulo-sp", "São Paulo - SP"),
-    ("taubate-sp", "Taubaté - SP"),
-    ("aparecida-sp", "Aparecida - SP"),
-    ("guaratingueta-sp", "Guaratinguetá - SP"),
+    ("rio-de-janeiro-rj", "Rio de Janeiro - RJ"),
+    ("belo-horizonte-mg", "Belo Horizonte - MG"),
+    ("curitiba-pr", "Curitiba - PR"),
+    ("campinas-sp", "Campinas - SP"),
+    ("sao-jose-dos-campos-sp", "São José dos Campos - SP"),
     ("resende-rj", "Resende - RJ"),
     ("volta-redonda-rj", "Volta Redonda - RJ"),
-    ("campinas-sp", "Campinas - SP"),
     ("niteroi-rj", "Niterói - RJ"),
-    ("belo-horizonte-mg", "Belo Horizonte - MG"),
+    ("santos-sp", "Santos - SP"),
+    ("aparecida-sp", "Aparecida - SP"),
+    ("taubate-sp", "Taubaté - SP"),
 ]
 
 # Catálogo expandido para autocompletar na Web UI e resolução sem precisar digitar UF ou hífens
@@ -164,9 +164,9 @@ def resolve_city(raw: str) -> str:
     """Converte entrada livre do usuário em slug `cidade-uf`.
 
     Aceita:
-    - Número da lista rápida (`"1"` -> `"rio-de-janeiro-rj"`, `"3"` -> `"sao-jose-dos-campos-sp"`)
-    - Nome com ou sem acento, com espaço ou traço (`"sao jose dos campos sp"`, `"São José dos Campos - SP"`)
-    - Nome sem a UF (`"sao jose dos campos"`, `"cacapava"`, `"sjc"`, `"rio"`)
+    - Número da lista rápida (`"1"` -> `"sao-paulo-sp"`, `"2"` -> `"rio-de-janeiro-rj"`)
+    - Nome com ou sem acento, com espaço ou traço (`"sao paulo sp"`, `"São Paulo - SP"`)
+    - Nome sem a UF ou abreviações conhecidas (`"sao paulo"`, `"rio"`, `"sp"`, `"bh"`)
     """
     raw = (raw or "").strip()
     if not raw:

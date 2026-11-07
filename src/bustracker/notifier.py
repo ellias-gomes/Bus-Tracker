@@ -31,24 +31,41 @@ def fmt_seats(it: Itinerary) -> str:
 
 def fmt_itinerary(it: Itinerary, detailed: bool = True) -> str:
     lines = []
+    pure_price = it.bus_price
+    est_price = it.estimate_price
+
     for seg in it.segments:
-        dep, arr = seg.depart_at.strftime("%d/%m %H:%M"), seg.arrive_at.strftime("%d/%m %H:%M")
         if seg.is_estimate:
-            lines.append(f"   ↳ <i>{_e(city_label(seg.origin))} → {_e(city_label(seg.destination))}: conexão local estimada ~{fmt_money(seg.price)}</i>")
+            orig_lbl = city_label(seg.origin)
+            dest_lbl = city_label(seg.destination)
+            lines.append(f"   🚐 <i>Translado local estimado: {_e(orig_lbl)} → {_e(dest_lbl)} (~{fmt_money(seg.price)})</i>")
             continue
-        head = f"🚌 {dep} → {arr} | <b>{fmt_money(seg.price)}</b> | {_e(seg.company)} ({_e(seg.seat_type)})"
-        lines.append(head)
+
+        dep = seg.depart_at.strftime("%d/%m %H:%M")
+        arr = seg.arrive_at.strftime("%d/%m %H:%M")
+        orig_lbl = city_label(seg.origin)
+        dest_lbl = city_label(seg.destination)
+
+        lines.append(f"   🚌 <b>{dep} ➔ {arr}</b>")
+        lines.append(f"      💰 Tarifa Ônibus: <b>{fmt_money(seg.price)}</b>")
+        lines.append(f"      🏢 Empresa: {_e(seg.company)} ({_e(seg.seat_type)})")
+        lines.append(f"      🛣️ Trecho: {_e(orig_lbl)} ➔ {_e(dest_lbl)}")
         if detailed:
-            lines.append(f"   🛣️ Trecho: {_e(city_label(seg.origin))} → {_e(city_label(seg.destination))}")
             if seg.boarding_point:
-                lines.append(f"   📍 Embarque: {_e(seg.boarding_point)}")
+                lines.append(f"      📍 Embarque: {_e(seg.boarding_point)}")
             if seg.alighting_point:
-                lines.append(f"   🏁 Desembarque: {_e(seg.alighting_point)}")
-            if seg.url:
-                lines.append(f"   🔗 Link: <a href=\"{_e(seg.url)}\">{_e(seg.url)}</a>")
+                lines.append(f"      🏁 Desembarque: {_e(seg.alighting_point)}")
+        if seg.url:
+            lines.append(f"      🎟️ <b>Link direto:</b> <a href=\"{_e(seg.url)}\"><b>Comprar na {seg.provider.capitalize()} ➔</b></a>")
+
     if it.transfers:
-        lines.append(f"   🔁 {it.transfers} conexão(ões) • total {fmt_money(it.price)}")
-    lines.append(f"   💺 Vagas: {fmt_seats(it)} • via {it.main_segment.provider}")
+        lines.append(f"   🔁 <b>{it.transfers} conexão(ões)</b> • Total ônibus: <b>{fmt_money(pure_price)}</b>")
+        if est_price > 0:
+            lines.append(f"   <i>(+ ~{fmt_money(est_price)} translados locais estimados)</i>")
+    elif est_price > 0:
+        lines.append(f"   ℹ️ <i>Ônibus: <b>{fmt_money(pure_price)}</b> (+ ~{fmt_money(est_price)} translado local)</i>")
+
+    lines.append(f"   💺 Vagas: <b>{fmt_seats(it)}</b> • Plataforma: <b>{it.main_segment.provider.capitalize()}</b>")
     return "\n".join(lines)
 
 
@@ -56,33 +73,50 @@ def fmt_recommendation(trip: Trip, rec: Recommendation, header: str | None = Non
     leg_origin, leg_dest = (trip.origin, trip.destination) if rec.leg == "ida" else (trip.destination, trip.origin)
     spec = trip.outbound if rec.leg == "ida" else trip.return_leg
     lines = []
+
     if header:
-        lines.append(f"<b>{_e(header)}</b>\n")
+        lines.append(f"<b>{_e(header)}</b>")
+        lines.append("────────────────────────────")
+    else:
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
     lines.append(f"<b>{rec.level.label}</b>")
-    lines.append(f"🧳 {_e(trip.name)} — <b>{rec.leg.upper()}</b> <code>{trip.id}</code>")
-    lines.append(f"📍 {_e(city_label(leg_origin))} → {_e(city_label(leg_dest))}")
+    lines.append(f"🧳 <b>{_e(trip.name)}</b> — <b>{rec.leg.upper()}</b> <code>({trip.id})</code>")
+    lines.append(f"📍 {_e(city_label(leg_origin))} ➔ {_e(city_label(leg_dest))}")
     if spec:
-        lines.append(f"📅 {fmt_date(spec.date)} • faltam {rec.days_left} dia(s)")
-        lines.append(f"⏰ Janela: {spec.describe()}")
-    lines.append("")
+        lines.append(f"📅 <b>{fmt_date(spec.date)}</b> (faltam {rec.days_left} dias)")
+        lines.append(f"⏰ Janela desejada: <i>{spec.describe()}</i>")
+
+    lines.append("────────────────────────────")
+
     if rec.best:
+        lines.append("<b>✨ MELHOR OPÇÃO ENCONTRADA:</b>")
         lines.append(fmt_itinerary(rec.best))
-    for reason in rec.reasons:
-        lines.append(f"💡 {_e(reason)}")
+    else:
+        lines.append("⚪ <i>Nenhum horário encontrado dentro da janela configurada.</i>")
+
+    if rec.reasons:
+        lines.append("")
+        lines.append("<b>Motivos do Alerta:</b>")
+        for reason in rec.reasons:
+            lines.append(f"💡 {_e(reason)}")
+
     if rec.alternatives:
-        lines.append("\n<b>Outras opções:</b>")
-        for alt in rec.alternatives:
+        lines.append("")
+        lines.append("<b>Outras opções disponíveis:</b>")
+        for alt in rec.alternatives[:4]:
             seg = alt.main_segment
-            price_info = (
-                f"{fmt_money(seg.price)} ônibus ({fmt_money(alt.price)} total)"
-                if alt.transfers
-                else fmt_money(alt.price)
-            )
-            link_part = f" — <a href=\"{_e(seg.url)}\">link</a>" if seg.url else ""
+            bus_p = alt.bus_price
+            dep_t = seg.depart_at.strftime('%H:%M')
+            arr_t = seg.arrive_at.strftime('%H:%M')
+            transfer_str = "c/ conexão" if alt.transfers else "direto"
+            link_part = f' | <a href="{_e(seg.url)}"><b>Comprar ➔</b></a>' if seg.url else ""
             lines.append(
-                f"• {seg.depart_at.strftime('%H:%M')} → {seg.arrive_at.strftime('%d/%m %H:%M')} "
-                f"{price_info} ({_e(seg.company)}, {_e(seg.seat_type)}, {fmt_seats(alt)} vagas){link_part}"
+                f"• <b>{dep_t} ➔ {arr_t}</b>: <b>{fmt_money(bus_p)}</b> "
+                f"({_e(seg.company)}, {fmt_seats(alt)} vagas, {transfer_str}){link_part}"
             )
+
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     return "\n".join(lines)
 
 
@@ -92,10 +126,8 @@ def booking_buttons(rec: Recommendation) -> list[tuple[str, str]]:
     urls: list[tuple[str, str]] = []
     for seg in rec.best.segments:
         if not seg.is_estimate and seg.url and all(seg.url != u for _, u in urls):
-            orig_short = city_label(seg.origin).split(" - ")[0]
-            dest_short = city_label(seg.destination).split(" - ")[0]
             dep_hm = seg.depart_at.strftime("%H:%M")
-            label = f"🔗 {seg.provider.capitalize()} ({orig_short} → {dest_short} • {dep_hm})"
+            label = f"🎟️ Reservar na {seg.provider.capitalize()} ({fmt_money(seg.price)} • {dep_hm})"
             urls.append((label, seg.url))
     return urls
 
@@ -121,12 +153,12 @@ def fmt_daily_summary(
     target_excellent: float = 70.0,
     header: str | None = None,
 ) -> str:
-    title = header or "📋 <b>Resumo de Monitoramento</b>"
+    title = header or "📋 <b>Resumo de Monitoramento de Passagens</b>"
     if not results:
-        return f"{title}\nNenhuma viagem ativa no horizonte configurado."
+        return f"{title}\n\nNenhuma viagem ativa no horizonte configurado."
 
     bought_map = bought_map or {}
-    lines = [f"{title}\n"]
+    lines = [f"{title}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"]
 
     # Agrupa por viagem para calcular o Combo Ida + Volta e Subtotal restante
     by_trip: dict[str, list[tuple[Trip, Recommendation]]] = {}
@@ -144,16 +176,20 @@ def fmt_daily_summary(
         legs_with_price = 0
         total_legs = len(pair)
 
+        lines.append(f"🧳 <b>{_e(trip_name)}</b> <code>({trip_id})</code>")
+
         for trip, rec in pair:
             spec = trip.outbound if rec.leg == "ida" else trip.return_leg
             date_str = spec.date.strftime("%d/%m") if spec else "?"
             is_bought = bought_map.get((trip.id, rec.leg), False)
-            bought_badge = " [COMPRADO]" if is_bought else ""
+            bought_badge = " [COMPRADO ✅]" if is_bought else ""
 
             if rec.best:
                 dep = rec.best.depart_at.strftime("%H:%M")
                 arr = rec.best.arrive_at.strftime("%H:%M")
-                price_val = rec.best.price
+                bus_p = rec.best.bus_price
+                est_p = rec.best.estimate_price
+                price_val = bus_p
                 trip_total += price_val
                 total_geral_todas += price_val
                 legs_with_price += 1
@@ -162,14 +198,19 @@ def fmt_daily_summary(
                     trip_pending += price_val
                     total_restante_todas += price_val
 
+                main_seg = rec.best.main_segment
+                link_html = f' • <a href="{_e(main_seg.url)}"><b>🎟️ Comprar ({main_seg.provider.capitalize()})</b></a>' if (main_seg and main_seg.url) else ""
+                est_tag = f" <i>(+ ~{fmt_money(est_p)} translado)</i>" if est_p > 0 else ""
+
+                status_emoji = rec.level.label.split()[0]
                 lines.append(
-                    f"{rec.level.label.split()[0]} <b>{_e(trip.name)}</b> ({rec.leg.upper()} {date_str}, D-{rec.days_left}){bought_badge}: "
-                    f"<b>{fmt_money(rec.price)}</b> ({dep}→{arr}, {fmt_seats(rec.best)} vagas) <code>{trip.id}</code>"
+                    f"  {status_emoji} <b>{rec.leg.upper()} ({date_str}, D-{rec.days_left})</b>{bought_badge}:\n"
+                    f"     ⏰ {dep} ➔ {arr} | <b>{fmt_money(bus_p)}</b>{est_tag} | 💺 {fmt_seats(rec.best)} vagas{link_html}"
                 )
             else:
                 lines.append(
-                    f"⚪ <b>{_e(trip.name)}</b> ({rec.leg.upper()} {date_str}, D-{rec.days_left}){bought_badge}: "
-                    f"sem opções na janela <code>{trip.id}</code>"
+                    f"  ⚪ <b>{rec.leg.upper()} ({date_str}, D-{rec.days_left})</b>{bought_badge}: "
+                    f"sem opções na janela"
                 )
 
         # Adiciona o resumo do combo para viagens com 2 trechos (ou mais)
@@ -187,12 +228,13 @@ def fmt_daily_summary(
 
             pending_info = f" • A Pagar: <b>{fmt_money(trip_pending)}</b>" if trip_pending != trip_total else ""
             lines.append(
-                f"   💰 <i>Combo {total_legs} trechos: <b>{fmt_money(trip_total)}</b>{pending_info} ({meta_tag})</i>"
+                f"  💰 <i>Combo {total_legs} trechos: <b>{fmt_money(trip_total)}</b>{pending_info} ({meta_tag})</i>"
             )
+        lines.append("")
 
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     # Total geral consolidado
     if tem_algum_preco:
-        lines.append("")
         lines.append(f"💵 <b>TOTAL GERAL ESTIMADO: {fmt_money(total_geral_todas)}</b>")
         if total_restante_todas != total_geral_todas:
             lines.append(f"💳 <b>SUBTOTAL RESTANTE (A PAGAR): {fmt_money(total_restante_todas)}</b>")

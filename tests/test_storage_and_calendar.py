@@ -22,9 +22,9 @@ def test_json_and_ics_loading_and_storage_sync(tmp_path: Path):
                 {
                     "id": "v1",
                     "nome": "Viagem Manual JSON",
-                    "origem": "Rio de Janeiro, RJ",
-                    "destino": "Caçapava, SP",
-                    "hub_alternativo": "São José dos Campos, SP",
+                    "origem": "São Paulo, SP",
+                    "destino": "Rio de Janeiro, RJ",
+                    "hub_alternativo": "Campinas, SP",
                     "data_ida": ida_date.isoformat(),
                     "data_volta": volta_date.isoformat(),
                     "limite_partida_ida": "22:00",
@@ -42,9 +42,9 @@ def test_json_and_ics_loading_and_storage_sync(tmp_path: Path):
 
     settings = Settings(
         local_trips_file=trips_file,
-        default_origin="rio-de-janeiro-rj",
-        default_destination="cacapava-sp",
-        default_hubs=["sao-jose-dos-campos-sp"],
+        default_origin="sao-paulo-sp",
+        default_destination="rio-de-janeiro-rj",
+        default_hubs=["campinas-sp"],
         default_outbound_depart_before="22:00",
         default_return_arrive_before="07:15",
         calendar_keywords=["prova"],
@@ -52,9 +52,9 @@ def test_json_and_ics_loading_and_storage_sync(tmp_path: Path):
 
     loaded = load_json_trips(settings)
     assert loaded is not None and len(loaded) == 2
-    assert loaded[0].origin == "rio-de-janeiro-rj"
-    assert loaded[0].destination == "cacapava-sp"
-    assert loaded[0].hubs == ["sao-jose-dos-campos-sp"]
+    assert loaded[0].origin == "sao-paulo-sp"
+    assert loaded[0].destination == "rio-de-janeiro-rj"
+    assert loaded[0].hubs == ["campinas-sp"]
     assert loaded[1].outbound is not None
     assert loaded[1].outbound.date == ev_date - timedelta(days=1)
 

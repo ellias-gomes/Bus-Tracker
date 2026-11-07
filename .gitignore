@@ -12,6 +12,7 @@ env/
 .env
 PLANEJAMENTO_PESSOAL.md
 DUVIDAS.md
+erros/
 
 # Banco de dados e armazenamento local
 *.db

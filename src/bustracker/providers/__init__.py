@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import logging
 
+from .aguia_branca import AguiaBrancaProvider
 from .base import BaseProvider, HttpSession, ProviderError
 from .buser import BuserProvider
 from .clickbus import ClickBusProvider
+from .cometa import CometaProvider
+from .guanabara import GuanabaraProvider
 from .passaro_marron import PassaroMarronProvider
 
 log = logging.getLogger(__name__)
 
 REGISTRY: dict[str, type[BaseProvider]] = {
     BuserProvider.name: BuserProvider,
+    GuanabaraProvider.name: GuanabaraProvider,
+    CometaProvider.name: CometaProvider,
+    AguiaBrancaProvider.name: AguiaBrancaProvider,
     ClickBusProvider.name: ClickBusProvider,
     PassaroMarronProvider.name: PassaroMarronProvider,
 }

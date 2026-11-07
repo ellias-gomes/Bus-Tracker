@@ -21,8 +21,8 @@ def _rec(level: Level, price: float = 69.90, days_left: int = 10) -> Recommendat
         [
             Offer(
                 provider="buser",
-                origin="rio-de-janeiro-rj",
-                destination="cacapava-sp",
+                origin="sao-paulo-sp",
+                destination="rio-de-janeiro-rj",
                 depart_at=datetime(2026, 11, 23, 21, 0, tzinfo=TZ),
                 arrive_at=datetime(2026, 11, 24, 2, 0, tzinfo=TZ),
                 price=price,
@@ -72,9 +72,9 @@ def test_should_alert_deduplication_and_price_drop(tmp_path: Path):
 
 def test_telegram_bot_commands(tmp_path: Path):
     settings = Settings(
-        default_origin="rio-de-janeiro-rj",
-        default_destination="cacapava-sp",
-        default_hubs=["sao-jose-dos-campos-sp"],
+        default_origin="sao-paulo-sp",
+        default_destination="rio-de-janeiro-rj",
+        default_hubs=[],
         default_outbound_depart_before="22:00",
         default_return_arrive_before="07:15",
     )
@@ -120,8 +120,8 @@ def test_fmt_daily_summary_totals_and_combos():
         id="t-combo",
         name="Viagem Fim de Semana",
         source=TripSource.MANUAL,
-        origin="rio-de-janeiro-rj",
-        destination="cacapava-sp",
+        origin="sao-paulo-sp",
+        destination="rio-de-janeiro-rj",
         outbound=LegSpec(date=date(2026, 11, 20)),
         return_leg=LegSpec(date=date(2026, 11, 22)),
     )
@@ -156,8 +156,8 @@ def test_export_csv_report():
         id="t-csv",
         name="Viagem Prova",
         source=TripSource.MANUAL,
-        origin="rio-de-janeiro-rj",
-        destination="cacapava-sp",
+        origin="sao-paulo-sp",
+        destination="rio-de-janeiro-rj",
         outbound=LegSpec(date=date(2026, 11, 20)),
     )
     rec = _rec(Level.BUY_NOW, price=69.90, days_left=10)
@@ -171,7 +171,7 @@ def test_export_csv_report():
     )
 
     assert "ID_VIAGEM;NOME_VIAGEM;TRECHO;ORIGEM;DESTINO;DATA_VIAGEM;STATUS" in csv_text
-    assert '"t-csv";"Viagem Prova";"IDA";"rio-de-janeiro-rj";"cacapava-sp"' in csv_text
+    assert '"t-csv";"Viagem Prova";"IDA";"sao-paulo-sp";"rio-de-janeiro-rj"' in csv_text
     assert '"69,90";"80,00";"70,00"' in csv_text
     assert '"SIM"' in csv_text
 
@@ -180,8 +180,8 @@ def test_check_all_force_summary_sends_telegram(tmp_path: Path, monkeypatch):
     settings = Settings(
         telegram_bot_token="123456789:ABCdefGHIjklMNOpqrSTUvwxYZ",
         telegram_chat_id="987654321",
-        default_origin="rio-de-janeiro-rj",
-        default_destination="cacapava-sp",
+        default_origin="sao-paulo-sp",
+        default_destination="rio-de-janeiro-rj",
     )
     storage = Storage(tmp_path / "force_sum.db")
     try:
@@ -190,8 +190,8 @@ def test_check_all_force_summary_sends_telegram(tmp_path: Path, monkeypatch):
             id="t-force",
             name="Viagem Force",
             source=TripSource.MANUAL,
-            origin="rio-de-janeiro-rj",
-            destination="cacapava-sp",
+            origin="sao-paulo-sp",
+            destination="rio-de-janeiro-rj",
             outbound=LegSpec(date=date.today() + timedelta(days=10)),
         )
         storage.upsert_trip(trip)

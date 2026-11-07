@@ -64,8 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_add = sub.add_parser("add", help="Adiciona uma viagem manualmente")
     p_add.add_argument("outbound_date", help="Data de ida (AAAA-MM-DD ou DD/MM/AAAA)")
     p_add.add_argument("return_date", nargs="?", help="Data de volta opcional (AAAA-MM-DD ou DD/MM/AAAA)")
-    p_add.add_argument("--origin", help="Cidade de origem (ex.: rio-de-janeiro-rj)")
-    p_add.add_argument("--dest", help="Cidade de destino (ex.: cacapava-sp)")
+    p_add.add_argument("--origin", help="Cidade de origem (ex.: sao-paulo-sp)")
+    p_add.add_argument("--dest", help="Cidade de destino (ex.: rio-de-janeiro-rj)")
     p_add.add_argument("--hubs", help="Hubs separados por vírgula (ex.: sao-jose-dos-campos-sp)")
     p_add.add_argument("--name", help="Nome/descrição da viagem")
 

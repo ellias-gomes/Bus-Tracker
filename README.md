@@ -3,7 +3,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Pop!_OS%20%7C%20Termux%20(Android)-orange.svg)](#-executando-em-segundo-plano)
-[![Tests](https://img.shields.io/badge/tests-22%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-30%20passed-brightgreen.svg)](tests/)
 
 O **BusTracker** é um sistema autônomo, modular e de baixo consumo de recursos projetado para monitorar tarifas de passagens rodoviárias, identificar o **melhor momento de compra** com base em histórico e tendências, e alertar o usuário via **Telegram** sobre quedas de preço e escassez de assentos.
 
@@ -17,8 +17,9 @@ O sistema conta com **três modos de uso** pensados para cada ocasião (veja [do
 ## 🎯 Principais Funcionalidades
 
 - **Multi-Provedor & Agregação:**
-  - Conector de alta performance para a **Buser** (extração direta via requisições HTTP leves no payload SSR Nuxt 3, sem emulação de navegador).
-  - Arquitetura extensível e preparada para novos conectores rodoviários ([ClickBus](file:///home/elliasgomes/Documentos/procura_onibus/src/bustracker/providers/clickbus.py), [Pássaro Marron](file:///home/elliasgomes/Documentos/procura_onibus/src/bustracker/providers/passaro_marron.py)).
+  - Conector de alta performance para a **Buser** (extração direta via requisições HTTP leves no payload SSR Nuxt 3).
+  - Conectores oficiais diretos para viações tradicionais: **Guanabara** (Guanabara, Util, Sampaio, Real Expresso via REST API Next.js), **Viação Cometa** (Grupo JCA - Cometa, 1001, Catarinense via REST API JCA) e **Viação Águia Branca** (via SAP Commerce Cloud).
+  - Arquitetura extensível e preparada para novos conectores ([ClickBus](file:///home/elliasgomes/Documentos/procura_onibus/src/bustracker/providers/clickbus.py), [Pássaro Marron](file:///home/elliasgomes/Documentos/procura_onibus/src/bustracker/providers/passaro_marron.py)).
 - **Roteamento Inteligente (Hubs & Proximidade):**
   - Caso sua cidade de destino não possua linha direta no horário pretendido, o sistema busca alternativas viáveis com desembarque em cidades vizinhas (hubs regionais com 0 a 1 baldeação ou conexão local estimada).
   - Consulte a documentação detalhada em [docs/ROTEAMENTO_E_HUBS.md](file:///home/elliasgomes/Documentos/procura_onibus/docs/ROTEAMENTO_E_HUBS.md).
@@ -56,12 +57,12 @@ O sistema conta com **três modos de uso** pensados para cada ocasião (veja [do
                                       v
 +-----------------------+   +--------------------+   +-----------------------+
 |  Provedores Scraper   |-->|   Orquestrador     |<--|  Telegram Bot         |
-|  - Buser (Nuxt SSR)   |   |     (Scheduler)    |   |  - Consultas `/status`|
-|  - ClickBus / Outros  |   +--------------------+   |  - Alertas Push       |
-+-----------------------+             |              +-----------------------+
-                                      v
-                             +------------------+
-                             |   Banco SQLite   |
+|  - Buser              |   |     (Scheduler)    |   |  - Consultas `/status`|
+|  - Guanabara / Sampaio|   +--------------------+   |  - Alertas Push       |
+|  - Cometa (Grupo JCA) |             |              +-----------------------+
+|  - Águia Branca       |             v              
+|  - ClickBus / Outros  |    +------------------+    
++-----------------------+    |   Banco SQLite   |    
                              |  (Histórico &    |
                              |   Snapshots)     |
                              +------------------+
@@ -79,6 +80,7 @@ O sistema conta com **três modos de uso** pensados para cada ocasião (veja [do
 
 Para entender detalhes aprofundados sobre cada subsistema, consulte os guias na pasta `docs/`:
 - [docs/MODOS_DE_USO.md](file:///home/elliasgomes/Documentos/procura_onibus/docs/MODOS_DE_USO.md) — Guia visual do **Ambiente Gráfico (Web UI)**, **Menu Interativo (TUI)** e **CLI**.
+- [docs/PROVEDORES.md](file:///home/elliasgomes/Documentos/procura_onibus/docs/PROVEDORES.md) — Catálogo e arquitetura técnica dos conectores (Buser, Guanabara, Cometa, Águia Branca).
 - [docs/MOTOR_DE_DECISAO.md](file:///home/elliasgomes/Documentos/procura_onibus/docs/MOTOR_DE_DECISAO.md) — Fórmula estatística, regras de urgência e anti-spam.
 - [docs/ROTEAMENTO_E_HUBS.md](file:///home/elliasgomes/Documentos/procura_onibus/docs/ROTEAMENTO_E_HUBS.md) — Roteamento com baldeação e conexões locais estimadas.
 - [docs/TELEGRAM_BOT.md](file:///home/elliasgomes/Documentos/procura_onibus/docs/TELEGRAM_BOT.md) — Passo a passo para criar e interagir com o bot.
@@ -122,9 +124,9 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
 TELEGRAM_CHAT_ID=987654321
 
 # Rota Padrão e Janelas de Segurança
-DEFAULT_ORIGIN=rio-de-janeiro-rj
-DEFAULT_DESTINATION=cacapava-sp
-DEFAULT_HUBS=sao-jose-dos-campos-sp
+DEFAULT_ORIGIN=sao-paulo-sp
+DEFAULT_DESTINATION=rio-de-janeiro-rj
+DEFAULT_HUBS=
 
 DEFAULT_OUTBOUND_DEPART_AFTER=18:00
 DEFAULT_OUTBOUND_DEPART_BEFORE=22:00
@@ -133,10 +135,10 @@ DEFAULT_RETURN_ARRIVE_BEFORE=07:15
 
 # Parâmetros de Preço Alvo (R$)
 TARGET_PRICE_GOOD=80.00
-TARGET_PRICE_EXCELLENT=70.00
+TARGET_PRICE_EXCELLENT=60.00
 
-# Conexão Local Estimada entre Hub e Destino (cidade-a|cidade-b|custo|minutos)
-LOCAL_CONNECTIONS=sao-jose-dos-campos-sp|cacapava-sp|12.00|35
+# Conexão Local Estimada entre Hub e Destino (opcional: cidade-a|cidade-b|custo|minutos)
+LOCAL_CONNECTIONS=campinas-sp|jundiai-sp|15.00|30;aparecida-sp|guaratingueta-sp|6.50|15
 ```
 
 ---
@@ -162,7 +164,7 @@ Um menu numerado (`[1]` a `[9]`, `[E]` para Exportar CSV) guiará você passo a 
 ### Opção 3: ⚡ Linha de Comando Direta (CLI Tradicional)
 ```bash
 # Busca avulsa em tempo real (aceita datas curtas DD/MM)
-./bustracker search rio-de-janeiro-rj sao-jose-dos-campos-sp 23/11 --before 22:00
+./bustracker search sao-paulo-sp rio-de-janeiro-rj 23/11 --before 22:00
 
 # Cadastrar viagem manual ou a partir de um compromisso
 ./bustracker add 23/11 24/11 --name "Viagem Novembro"
@@ -191,7 +193,7 @@ Envie comandos interativos diretamente para o seu bot:
 - `/status` — Lista as viagens ativas e o menor preço encontrado nas últimas coletas.
 - `/viagens` (ou `/listar`) — Lista todas as viagens monitoradas.
 - `/historico [id] [ida|volta]` — Exibe gráfico de evolução de preços dos últimos 14 dias.
-- `/buscar rio-de-janeiro-rj sao-jose-dos-campos-sp 2026-11-23` — Realiza uma busca pontual em tempo real.
+- `/buscar sao-paulo-sp rio-de-janeiro-rj 2026-11-23` — Realiza uma busca pontual em tempo real.
 - `/verificar` — Dispara uma coleta imediata de todas as rotas.
 - `/comprei <id> [ida|volta]` — Silencia alertas de um trecho já adquirido.
 - `/remover <id>` — Desativa uma viagem monitorada.
@@ -203,9 +205,9 @@ Crie ou edite o arquivo `data/viagens.json` baseado no [data/viagens.example.jso
 [
   {
     "id": "viagem-01",
-    "origem": "Rio de Janeiro, RJ",
-    "destino": "Caçapava, SP",
-    "hub_alternativo": "São José dos Campos, SP",
+    "origem": "São Paulo, SP",
+    "destino": "Rio de Janeiro, RJ",
+    "hub_alternativo": "",
     "data_ida": "2026-11-23",
     "data_volta": "2026-11-24",
     "limite_partida_ida": "22:00",
@@ -249,19 +251,18 @@ Quando o robô identifica uma oportunidade ou alteração relevante, ele envia u
 
 🟢 COMPRA RECOMENDADA
 🧳 Viagem Novembro — IDA [cli-a1b2c3]
-📍 Rio De Janeiro - RJ → Caçapava - SP
+📍 São Paulo - SP → Rio de Janeiro - RJ
 📅 23/11/2026 (Segunda) • faltam 18 dia(s)
 ⏰ Janela: saída 18:00–22:00
 
-🚌 23/11 21:15 → 24/11 02:30 | R$ 64,90 | Buser (semi leito)
-   📍 Embarque: Posto Estação (Rio de Janeiro)
-   🏁 Desembarque: Posto da Gruta (São José dos Campos)
-   ↳ São José dos Campos - SP → Caçapava - SP: conexão local estimada ~R$ 12,00
-   🔁 1 conexão(ões) • total R$ 76,90
-   💺 Vagas: 13+ • via buser
+🚌 23/11 21:15 → 24/11 03:30 | R$ 59,90 | Buser (semi leito)
+   📍 Embarque: Terminal Rodoviário Tietê (São Paulo)
+   🏁 Desembarque: Terminal Rodoviário Novo Rio (Rio de Janeiro)
+   🔁 Direto • total R$ 59,90
+   💺 Vagas: 12+ • via buser
 
-💡 Preço bom (R$ 76,90) e bem abaixo da média histórica.
-💡 23% abaixo da média de 14 dias (R$ 99,80).
+💡 Preço excelente (R$ 59,90) e bem abaixo da média histórica.
+💡 25% abaixo da média de 14 dias (R$ 79,90).
 
 [ Botão Inline: 🔗 Comprar na Buser ]
 ```

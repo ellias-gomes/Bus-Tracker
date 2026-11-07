@@ -19,6 +19,7 @@ from .env_editor import editable_settings_dict, update_env_values
 from .models import Itinerary, Recommendation, Trip, TripSource
 from .notifier import export_csv_report, fmt_seats
 from .orchestrator import Orchestrator
+from .providers.base import HttpSession
 from .telegram.client import TelegramClient
 from .utils.text import (
     CITY_CATALOG,
@@ -41,11 +42,17 @@ def _serialize_itinerary(it: Itinerary | None) -> dict[str, Any] | None:
         return None
     main = it.main_segment
     return {
-        "price": it.price,
+        "price": it.bus_price,
+        "bus_price": it.bus_price,
+        "estimate_price": it.estimate_price,
+        "total_price": it.total_price,
+        "has_estimate": it.estimate_price > 0,
         "depart_at": it.depart_at.strftime("%d/%m %H:%M"),
         "depart_time": it.depart_at.strftime("%H:%M"),
+        "depart_iso": it.depart_at.isoformat(),
         "arrive_at": it.arrive_at.strftime("%d/%m %H:%M"),
         "arrive_time": it.arrive_at.strftime("%H:%M"),
+        "arrive_iso": it.arrive_at.isoformat(),
         "transfers": it.transfers,
         "seats": it.seats,
         "seats_display": fmt_seats(it),
@@ -86,6 +93,10 @@ def _serialize_rec(trip: Trip, rec: Recommendation, bought: bool) -> dict[str, A
         (trip.origin, trip.destination) if rec.leg == "ida" else (trip.destination, trip.origin)
     )
     spec = trip.outbound if rec.leg == "ida" else trip.return_leg
+    best_it = _serialize_itinerary(rec.best)
+    bus_price = rec.best.bus_price if rec.best else rec.price
+    estimate_price = rec.best.estimate_price if rec.best else 0.0
+    total_price = rec.best.total_price if rec.best else rec.price
     return {
         "trip_id": trip.id,
         "trip_name": trip.name,
@@ -101,8 +112,13 @@ def _serialize_rec(trip: Trip, rec: Recommendation, bought: bool) -> dict[str, A
         "level": rec.level.value,
         "level_label": rec.level.label,
         "reasons": rec.reasons,
-        "price": rec.price,
-        "best": _serialize_itinerary(rec.best),
+        "price": bus_price,
+        "bus_price": bus_price,
+        "estimate_price": estimate_price,
+        "total_price": total_price,
+        "has_estimate": estimate_price > 0,
+        "best": best_it,
+        "best_itinerary": best_it,
         "alternatives": [_serialize_itinerary(a) for a in rec.alternatives],
         "stats": {
             "samples": rec.stats.samples,
@@ -134,13 +150,14 @@ class WebApp:
 
         for trip, rec in statuses:
             bought = bool(self.storage.kv_get(f"bought:{trip.id}:{rec.leg}"))
-            recs_out.append(_serialize_rec(trip, rec, bought))
+            s_rec = _serialize_rec(trip, rec, bought)
+            recs_out.append(s_rec)
             recs_by_trip.setdefault(trip.id, []).append((rec, bought))
-            if rec.price is not None:
+            if s_rec["price"] is not None:
                 tem_preco = True
-                total_geral += rec.price
+                total_geral += s_rec["price"]
                 if not bought:
-                    total_restante += rec.price
+                    total_restante += s_rec["price"]
 
         trips_out = []
         for t in self.storage.list_trips(active_only=True):
@@ -158,21 +175,27 @@ class WebApp:
                 combo_remaining = 0.0
                 priced_legs = 0
                 bought_count = 0
+                estimate_total = 0.0
                 for rec, bought in trip_recs:
                     if bought:
                         bought_count += 1
-                    if rec.price is not None:
-                        combo_price += rec.price
+                    leg_p = rec.best.bus_price if rec.best else rec.price
+                    if rec.best:
+                        estimate_total += rec.best.estimate_price
+                    if leg_p is not None:
+                        combo_price += leg_p
                         priced_legs += 1
                         if not bought:
-                            combo_remaining += rec.price
+                            combo_remaining += leg_p
                 d["combo"] = {
                     "has_combo": expected_legs >= 2,
                     "legs_count": len(trip_recs),
                     "expected_legs": expected_legs,
                     "all_priced": priced_legs == expected_legs,
-                    "combo_price": combo_price if priced_legs > 0 else None,
-                    "combo_remaining": combo_remaining,
+                    "combo_price": round(combo_price, 2) if priced_legs > 0 else None,
+                    "combo_remaining": round(combo_remaining, 2),
+                    "estimate_total": round(estimate_total, 2),
+                    "combo_total_with_estimate": round(combo_price + estimate_total, 2) if priced_legs > 0 else None,
                     "bought_count": bought_count,
                     "is_fully_bought": bought_count >= expected_legs,
                     "target_good": self.settings.target_price_good * expected_legs,
@@ -183,6 +206,9 @@ class WebApp:
 
             trips_out.append(d)
 
+        rec_prices = [r["price"] for r in recs_out if r.get("price") is not None]
+        lowest_price = min(rec_prices) if rec_prices else None
+
         return {
             "settings": editable_settings_dict(self.settings),
             "telegram_enabled": self.settings.telegram_enabled,
@@ -190,9 +216,11 @@ class WebApp:
             "target_price_excellent": self.settings.target_price_excellent,
             "event_outbound_day_offset": self.settings.event_outbound_day_offset,
             "event_return_day_offset": self.settings.event_return_day_offset,
-            "cities": [{"slug": s, "name": n} for s, n in CITY_CATALOG],
+            "cities": [{"slug": s, "name": n, "label": n} for s, n in CITY_CATALOG],
             "trips": trips_out,
             "recommendations": recs_out,
+            "recs": recs_out,
+            "lowest_price": lowest_price,
             "total_geral": round(total_geral, 2) if tem_preco else None,
             "total_restante": round(total_restante, 2) if tem_preco else None,
         }
@@ -233,7 +261,10 @@ class WebApp:
 
             if method == "GET" and path == "/api/cities":
                 q = (query.get("q") or [""])[0]
-                return self._json({"cities": search_cities(q, limit=12)})
+                results = search_cities(q, limit=12)
+                for item in results:
+                    item.setdefault("label", item.get("name", ""))
+                return self._json({"cities": results})
 
             if method == "POST" and path == "/api/check":
                 report = await self.orchestrator.check_all(notify=True, force_summary=True)
@@ -244,10 +275,10 @@ class WebApp:
 
             if method == "POST" and path == "/api/search":
                 origin = resolve_city(
-                    payload.get("origin") or self.settings.default_origin or "rio-de-janeiro-rj"
+                    payload.get("origin") or self.settings.default_origin or "sao-paulo-sp"
                 )
                 dest = resolve_city(
-                    payload.get("destination") or self.settings.default_destination or "cacapava-sp"
+                    payload.get("destination") or self.settings.default_destination or "rio-de-janeiro-rj"
                 )
                 dt_str = str(payload.get("date") or "").strip()
                 dt: date = parse_date(dt_str) if dt_str else today(self.settings.timezone)
@@ -257,27 +288,61 @@ class WebApp:
                 else:
                     hubs = resolve_city_list(hubs_raw)
 
-                its = await self.orchestrator.search_ad_hoc(
-                    origin,
-                    dest,
-                    dt,
-                    hubs=hubs,
-                    depart_after=payload.get("depart_after") or None,
-                    depart_before=payload.get("depart_before") or None,
-                    arrive_before=payload.get("arrive_before") or None,
-                    arrive_day_offset=int(payload.get("arrive_day_offset") or 0),
+                ret_date_raw = str(payload.get("return_date") or "").strip()
+                dt_ret: date | None = parse_date(ret_date_raw) if ret_date_raw else None
+
+                shared_http = HttpSession(
+                    delay_seconds=self.settings.request_delay_seconds,
+                    timeout=self.settings.request_timeout_seconds,
                 )
-                return self._json(
-                    {
-                        "origin": origin,
-                        "destination": dest,
-                        "origin_label": city_label(origin),
-                        "dest_label": city_label(dest),
-                        "date_formatted": fmt_date(dt),
-                        "count": len(its),
-                        "itineraries": [_serialize_itinerary(it) for it in its[:25]],
-                    }
-                )
+                try:
+                    task_out = self.orchestrator.search_ad_hoc(
+                        origin,
+                        dest,
+                        dt,
+                        hubs=hubs,
+                        depart_after=payload.get("depart_after") or None,
+                        depart_before=payload.get("depart_before") or None,
+                        arrive_before=payload.get("arrive_before") or None,
+                        arrive_day_offset=int(payload.get("arrive_day_offset") or 0),
+                        session=shared_http,
+                    )
+
+                    if dt_ret:
+                        task_ret = self.orchestrator.search_ad_hoc(
+                            dest,
+                            origin,
+                            dt_ret,
+                            hubs=hubs,
+                            depart_after=payload.get("return_depart_after") or None,
+                            depart_before=payload.get("return_depart_before") or None,
+                            arrive_before=payload.get("return_arrive_before") or None,
+                            arrive_day_offset=int(payload.get("return_arrive_day_offset") or 0),
+                            session=shared_http,
+                        )
+                        its, return_its = await asyncio.gather(task_out, task_ret)
+                    else:
+                        its = await task_out
+                        return_its = None
+                finally:
+                    await shared_http.aclose()
+
+                resp = {
+                    "origin": origin,
+                    "destination": dest,
+                    "origin_label": city_label(origin),
+                    "dest_label": city_label(dest),
+                    "date_formatted": fmt_date(dt),
+                    "count": len(its),
+                    "itineraries": [_serialize_itinerary(it) for it in its[:25]],
+                }
+                if return_its is not None and dt_ret is not None:
+                    resp["return_date"] = dt_ret.isoformat()
+                    resp["return_date_formatted"] = fmt_date(dt_ret)
+                    resp["return_count"] = len(return_its)
+                    resp["return_itineraries"] = [_serialize_itinerary(it) for it in return_its[:25]]
+
+                return self._json(resp)
 
             if method == "POST" and path == "/api/trips/add":
                 dt_out = parse_date(str(payload["outbound_date"]))
@@ -285,8 +350,8 @@ class WebApp:
                 dt_ret = parse_date(ret_raw) if ret_raw else None
                 hubs_raw = str(payload.get("hubs") or "").strip()
                 hubs = resolve_city_list(hubs_raw) if hubs_raw else None
-                orig = resolve_city(payload.get("origin") or self.settings.default_origin or "rio-de-janeiro-rj")
-                dest = resolve_city(payload.get("destination") or self.settings.default_destination or "cacapava-sp")
+                orig = resolve_city(payload.get("origin") or self.settings.default_origin or "sao-paulo-sp")
+                dest = resolve_city(payload.get("destination") or self.settings.default_destination or "rio-de-janeiro-rj")
                 trip = trip_from_dates(
                     self.settings,
                     dt_out,
@@ -299,7 +364,9 @@ class WebApp:
                     hubs=hubs,
                     outbound_depart_after=payload.get("outbound_depart_after") or None,
                     outbound_depart_before=payload.get("outbound_depart_before") or None,
+                    outbound_arrive_before=payload.get("outbound_arrive_before") or None,
                     return_depart_after=payload.get("return_depart_after") or None,
+                    return_depart_before=payload.get("return_depart_before") or None,
                     return_arrive_before=payload.get("return_arrive_before") or None,
                 )
                 self.storage.upsert_trip(trip)
@@ -307,8 +374,8 @@ class WebApp:
 
             if method == "POST" and path == "/api/trips/event":
                 ev_date = parse_date(str(payload["event_date"]))
-                orig = resolve_city(payload.get("origin") or self.settings.default_origin or "rio-de-janeiro-rj")
-                dest = resolve_city(payload.get("destination") or self.settings.default_destination or "cacapava-sp")
+                orig = resolve_city(payload.get("origin") or self.settings.default_origin or "sao-paulo-sp")
+                dest = resolve_city(payload.get("destination") or self.settings.default_destination or "rio-de-janeiro-rj")
                 trip = trip_from_event(
                     self.settings,
                     ev_date,
@@ -318,6 +385,9 @@ class WebApp:
                     origin=orig,
                     destination=dest,
                     one_way=bool(payload.get("one_way")),
+                    outbound_depart_before=payload.get("outbound_depart_before") or None,
+                    return_depart_before=payload.get("return_depart_before") or None,
+                    return_arrive_before=payload.get("return_arrive_before") or None,
                 )
                 self.storage.upsert_trip(trip)
                 return self._json({"ok": True, "state": self.build_state()})

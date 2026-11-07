@@ -138,8 +138,7 @@ def _parse_local_connections(raw: str) -> list[LocalConnection]:
 
 
 DEFAULT_LOCAL_CONNECTIONS = (
-    "sao-jose-dos-campos-sp|cacapava-sp|12.00|35;"
-    "taubate-sp|cacapava-sp|10.00|25;"
+    "campinas-sp|jundiai-sp|15.00|30;"
     "aparecida-sp|guaratingueta-sp|6.50|15"
 )
 
@@ -156,9 +155,9 @@ class Settings:
     local_trips_file: Path = PROJECT_ROOT / "data" / "viagens.json"
 
     # Rota padrão (usada por eventos de calendário e comandos rápidos)
-    default_origin: str = "rio-de-janeiro-rj"
-    default_destination: str = "cacapava-sp"
-    default_hubs: list[str] = field(default_factory=lambda: ["sao-jose-dos-campos-sp", "taubate-sp"])
+    default_origin: str = "sao-paulo-sp"
+    default_destination: str = "rio-de-janeiro-rj"
+    default_hubs: list[str] = field(default_factory=list)
     event_outbound_day_offset: int = -1
     event_return_day_offset: int = 0
     default_outbound_depart_after: str = ""

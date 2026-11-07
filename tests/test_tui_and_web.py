@@ -27,12 +27,12 @@ def test_flexible_time_and_city_resolution():
     assert parse_hhmm("7h15") == time(7, 15)
     assert parse_hhmm("22:00") == time(22, 0)
 
-    assert resolve_city("1") == "rio-de-janeiro-rj"
-    assert resolve_city("2") == "cacapava-sp"
+    assert resolve_city("1") == "sao-paulo-sp"
+    assert resolve_city("2") == "rio-de-janeiro-rj"
     assert resolve_city("sao jose dos campos") == "sao-jose-dos-campos-sp"
     assert resolve_city("sao jose dos campos sp") == "sao-jose-dos-campos-sp"
     assert resolve_city("cacapava") == "cacapava-sp"
-    assert resolve_city_list("3,5") == ["sao-jose-dos-campos-sp", "taubate-sp"]
+    assert resolve_city_list("1,2") == ["sao-paulo-sp", "rio-de-janeiro-rj"]
 
     suggestions = search_cities("sao jose")
     slugs = [c["slug"] for c in suggestions]
@@ -63,13 +63,13 @@ def test_telegram_placeholder_and_token_validation():
 def test_interactive_tui_flow(tmp_path: Path):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "DEFAULT_ORIGIN=rio-de-janeiro-rj\nDEFAULT_DESTINATION=cacapava-sp\nTARGET_PRICE_GOOD=80.00\nTARGET_PRICE_EXCELLENT=70.00\n",
+        "DEFAULT_ORIGIN=sao-paulo-sp\nDEFAULT_DESTINATION=rio-de-janeiro-rj\nTARGET_PRICE_GOOD=80.00\nTARGET_PRICE_EXCELLENT=70.00\n",
         encoding="utf-8",
     )
     settings = Settings(
-        default_origin="rio-de-janeiro-rj",
-        default_destination="cacapava-sp",
-        default_hubs=["sao-jose-dos-campos-sp"],
+        default_origin="sao-paulo-sp",
+        default_destination="rio-de-janeiro-rj",
+        default_hubs=[],
         default_outbound_depart_before="22:00",
         default_return_arrive_before="07:15",
     )
@@ -121,13 +121,13 @@ def test_interactive_tui_flow(tmp_path: Path):
 def test_web_app_api_endpoints(tmp_path: Path):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "DEFAULT_ORIGIN=rio-de-janeiro-rj\nDEFAULT_DESTINATION=cacapava-sp\n",
+        "DEFAULT_ORIGIN=sao-paulo-sp\nDEFAULT_DESTINATION=rio-de-janeiro-rj\n",
         encoding="utf-8",
     )
     settings = Settings(
-        default_origin="rio-de-janeiro-rj",
-        default_destination="cacapava-sp",
-        default_hubs=["sao-jose-dos-campos-sp"],
+        default_origin="sao-paulo-sp",
+        default_destination="rio-de-janeiro-rj",
+        default_hubs=[],
     )
     storage = Storage(tmp_path / "web.db")
     try:
@@ -218,5 +218,53 @@ def test_web_app_api_endpoints(tmp_path: Path):
         csv_decoded = csv_bytes.decode("utf-8")
         assert "ID_VIAGEM;NOME_VIAGEM;TRECHO" in csv_decoded
         assert "Content-Disposition" in csv_resp[3]
+
+        # 7) Agendar viagem customizada com limite de ida e volta independentes
+        dt_out = (date.today() + timedelta(days=30)).isoformat()
+        dt_ret = (date.today() + timedelta(days=32)).isoformat()
+        status, _, add_body = asyncio.run(
+            web.dispatch(
+                "POST",
+                "/api/trips/add",
+                {},
+                json.dumps({
+                    "name": "Férias Teste",
+                    "outbound_date": dt_out,
+                    "return_date": dt_ret,
+                    "outbound_depart_before": "21h30",
+                    "return_depart_before": "19h00",
+                    "return_arrive_before": "06h30",
+                }).encode(),
+            )
+        )
+        assert status == 200
+        state_dict = json.loads(add_body)["state"]
+        assert "recs" in state_dict
+        assert "recommendations" in state_dict
+        assert state_dict["recs"] == state_dict["recommendations"]
+        assert "lowest_price" in state_dict
+        added_trip = [t for t in state_dict["trips"] if t["name"] == "Férias Teste"][0]
+        assert added_trip["outbound"]["depart_before"] == "21:30"
+        assert added_trip["return"]["depart_before"] == "19:00"
+        assert added_trip["return"]["arrive_before"] == "06:30"
+
+        # 8) Salvar configurações com DEFAULT_RETURN_DEPART_BEFORE
+        status, _, set_body = asyncio.run(
+            web.dispatch(
+                "POST",
+                "/api/settings",
+                {},
+                json.dumps({
+                    "updates": {
+                        "DEFAULT_OUTBOUND_DEPART_BEFORE": "21:00",
+                        "DEFAULT_RETURN_DEPART_BEFORE": "20:00",
+                    }
+                }).encode(),
+            )
+        )
+        assert status == 200
+        saved_cfg = json.loads(set_body)["state"]["settings"]
+        assert saved_cfg["DEFAULT_OUTBOUND_DEPART_BEFORE"] == "21:00"
+        assert saved_cfg["DEFAULT_RETURN_DEPART_BEFORE"] == "20:00"
     finally:
         storage.close()

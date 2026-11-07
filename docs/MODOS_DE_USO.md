@@ -53,7 +53,7 @@ Você verá um menu numerado amigável:
 ╔══════════════════════════════════════════════════════════════╗
 ║ 🚌 BusTracker — Central Interativa de Passagens              ║
 ╚══════════════════════════════════════════════════════════════╝
-  📍 Rota Padrão: Rio De Janeiro - RJ ↔ Cacapava - SP
+  📍 Rota Padrão: São Paulo - SP ↔ Rio de Janeiro - RJ
   🎯 Preço Alvo : Bom ≤ R$ 80,00 | Excelente ≤ R$ 70,00
   🗂️ Viagens    : 2 ativa(s)   •   🤖 Telegram: Ativo
 
@@ -72,7 +72,7 @@ Você verá um menu numerado amigável:
 
 ### Vantagens do Menu Interativo:
 - **Zero digitação repetitiva:** Pressione `Enter` em qualquer pergunta para aceitar o valor padrão do seu `.env`.
-- **Seleção de cidades por número:** Na busca ou cadastro, escolha `[1] Rio de Janeiro - RJ`, `[2] Caçapava - SP`, `[3] São José dos Campos - SP`, `[4] São Paulo - SP`, etc., digitando apenas 1 dígito.
+- **Seleção de cidades por número:** Na busca ou cadastro, escolha `[1] São Paulo - SP`, `[2] Rio de Janeiro - RJ`, `[3] Belo Horizonte - MG`, `[4] Curitiba - PR`, etc., digitando apenas 1 dígito.
 - **Datas curtas:** Aceita apenas `DD/MM` (ex.: `23/11`), preenchendo o ano automaticamente.
 - **Gerenciamento sem IDs:** Na opção `[6]` ou `[7]`, você seleciona a viagem digitando `1`, `2`, `3`... em vez de copiar códigos como `cli-a1b2c3`.
 
@@ -87,7 +87,7 @@ Todos os comandos diretos continuam disponíveis para uso em scripts, `cron` ou 
 ./bustracker --daemon                                                # Robô 24/7 + Bot do Telegram
 ./bustracker status                                                  # Resumo imediato no terminal
 ./bustracker import /caminho/meu_calendario.ics                      # Importa arquivo .ics ou .json
-./bustracker search rio-de-janeiro-rj sao-jose-dos-campos-sp 23/11   # Busca direta
+./bustracker search sao-paulo-sp rio-de-janeiro-rj 23/11            # Busca direta
 ./bustracker event 24/11 --name "Prova Bimestral"                    # Agenda compromisso (Ida D-1, Volta D0)
 ./bustracker add 23/11 24/11 --name "Viagem Fim de Ano"              # Agenda viagem manual
 ./bustracker history                                                 # Gráfico ASCII no terminal
